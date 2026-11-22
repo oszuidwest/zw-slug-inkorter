@@ -47,7 +47,7 @@ final class ShortenerTest extends \WP_UnitTestCase
 
     public function test_excerpt_is_sent_when_there_is_one(): void
     {
-        $this->publish(['post_excerpt' => 'Een garage in Putte is uitgebrand.', 'post_content' => '<!-- wp:paragraph --><p>Lange tekst</p><!-- /wp:paragraph -->']);
+        $this->publish(['post_excerpt' => 'Een <em>garage</em> in Putte is uitgebrand.', 'post_content' => '<!-- wp:paragraph --><p>Lange tekst</p><!-- /wp:paragraph -->']);
 
         $this->assertStringContainsString('SAMENVATTING: Een garage in Putte is uitgebrand.', $this->prompt());
     }
