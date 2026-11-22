@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace ZWSlugSniper;
 
 /**
- * Keeps the last failure until the next slug is made.
+ * Keeps the last failure until the next slug is made. The Site Health test only
+ * reads that failure and never calls the AI provider.
  */
 final class Health
 {
@@ -54,10 +55,10 @@ final class Health
     public static function test(): array
     {
         $result = [
-            'label'       => __('Slug Sniper maakt korte slugs', 'zw-slug-sniper'),
+            'label'       => __('Slug Sniper meldt geen fouten', 'zw-slug-sniper'),
             'status'      => 'good',
             'badge'       => ['label' => __('Slug Sniper', 'zw-slug-sniper'), 'color' => 'blue'],
-            'description' => '<p>' . esc_html__('Nieuwe berichten krijgen bij publiceren of inplannen een korte slug.', 'zw-slug-sniper') . '</p>',
+            'description' => '<p>' . esc_html__('De laatste poging bij de AI-provider gaf geen fout, of er was nog geen poging. Of de provider nu werkt, blijkt pas bij het volgende nieuwe bericht dat wordt gepubliceerd of ingepland.', 'zw-slug-sniper') . '</p>',
             'actions'     => '',
             'test'        => 'zw_slug_sniper',
         ];
@@ -79,14 +80,6 @@ final class Health
                 wp_date('j F Y H:i', (int) ($error['time'] ?? 0)),
                 (string) ($error['message'] ?? '')
             )) . '</p>';
-            return $result;
-        }
-
-        // Fetches the model list, so this also fails when the provider can't be reached.
-        if (!wp_ai_client_prompt('slug')->using_model_preference(Generator::MODEL)->is_supported_for_text_generation()) {
-            $result['status']      = 'critical';
-            $result['label']       = __('Slug Sniper vindt geen AI-model voor tekst', 'zw-slug-sniper');
-            $result['description'] = '<p>' . esc_html__('Er is geen AI-provider ingesteld, of de provider is nu niet bereikbaar. Tot die tijd houden berichten de lange slug van de titel.', 'zw-slug-sniper') . '</p>';
             $result['actions']     = '<p><a href="' . esc_url(admin_url('options-connectors.php')) . '">' . esc_html__('Naar Connectors', 'zw-slug-sniper') . '</a></p>';
         }
 
