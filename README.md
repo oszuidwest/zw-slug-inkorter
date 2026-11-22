@@ -19,7 +19,7 @@ It leaves these alone:
 
 The region comes from the `regio` taxonomy. Without a region, the model is asked to use the place from the title or excerpt. The Yoast primary region wins if it is still picked, otherwise the first region is used. Regions picked in the same save count, in both the block editor and the classic editor. A primary region picked in that same save is not seen yet, because Yoast sends it after the publish request. The first region is used then.
 
-The answer gets 8 seconds. Without a persistent object cache WordPress first fetches the provider's model list on every publish, which can take up to 5 seconds more. On zuidwestupdate.nl the whole call took about 2 seconds. If the provider gives no answer in time or an error, the post keeps the slug WordPress made from the title. The error goes to the PHP error log and shows in Tools → Site Health until the next slug works.
+The answer gets 8 seconds. Without a persistent object cache WordPress first fetches the provider's model list on every publish, which can take up to 5 seconds more. When the first answer is not used, the second one gets 8 seconds too, so in the worst case a publish waits about 21 seconds for the provider. On zuidwestupdate.nl the whole call took about 2 seconds. If the provider gives no answer in time or an error, the post keeps the slug WordPress made from the title. The error goes to the PHP error log and shows in Tools → Site Health until the next slug works.
 
 ## Requirements
 
