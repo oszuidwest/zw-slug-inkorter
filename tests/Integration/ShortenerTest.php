@@ -273,6 +273,15 @@ final class ShortenerTest extends \WP_UnitTestCase
         $this->assertIsArray(get_option(Health::OPTION));
     }
 
+    public function test_php_error_in_the_ai_client_keeps_the_title_slug(): void
+    {
+        add_filter('pre_http_request', static fn ($pre, array $args, string $url) => $url === 'https://api.openai.com/v1/responses' ? throw new \Error('kapot') : $pre, 9, 3);
+        $post = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
+        $this->assertSame('kapot', get_option(Health::OPTION)['message']);
+    }
+
     public function test_answer_without_usable_slug_keeps_the_title_slug(): void
     {
         $this->answer('  "---"  ');
