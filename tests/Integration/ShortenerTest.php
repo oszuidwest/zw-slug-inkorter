@@ -68,11 +68,11 @@ final class ShortenerTest extends \WP_UnitTestCase
     public function test_post_that_has_a_slug_never_asks_openai(): void
     {
         $post = $this->publish(['post_name' => 'eigen-slug']);
+        $this->assertSame('eigen-slug', $post->post_name);
         wp_update_post(['ID' => $post->ID, 'post_name' => '']);
         wp_update_post(['ID' => $post->ID, 'post_status' => 'draft']);
         wp_insert_post(['ID' => $post->ID, 'post_title' => $post->post_title, 'post_content' => 'Tekst', 'post_status' => 'publish']);
 
-        $this->assertSame('eigen-slug', $post->post_name);
         $this->assertSame([], $this->requests);
     }
 
