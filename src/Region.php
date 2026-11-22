@@ -78,7 +78,8 @@ final class Region
     /**
      * The Yoast primary region if it is still picked, else the first region.
      *
-     * The primary region is read from the saved post: in the block editor Yoast sends a new pick after the publish request.
+     * Yoast saves the primary region after this filter. The classic editor sends a new pick with the save, so that one is
+     * used. The block editor sends it after the publish request, so the saved one is read then.
      *
      * @param int                  $postId    Post ID, 0 for a new post.
      * @param array<string, mixed> $postarr   Slashed post input.
@@ -103,7 +104,14 @@ final class Region
             return null;
         }
 
-        $primary = (int) get_post_meta($postId, '_yoast_wpseo_primary_' . self::TAXONOMY, true);
+        // Only the classic editor form sends this field with post_ID. Core checked that form's nonce before the save, and
+        // the pick only chooses among the regions in $ids.
+        // phpcs:disable WordPress.Security.NonceVerification.Missing
+        $field   = 'yoast_wpseo_primary_' . self::TAXONOMY . '_term';
+        $primary = isset($_POST[$field], $_POST['post_ID']) && (int) $_POST['post_ID'] === $postId
+            ? (int) filter_var(wp_unslash($_POST[$field]), FILTER_VALIDATE_INT)
+            : (int) get_post_meta($postId, '_yoast_wpseo_primary_' . self::TAXONOMY, true);
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
         $term    = get_term(in_array($primary, $ids, true) ? $primary : $ids[0], self::TAXONOMY);
         return $term instanceof \WP_Term ? $term->name : null;
     }
