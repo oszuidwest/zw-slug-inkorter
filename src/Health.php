@@ -62,10 +62,10 @@ final class Health
             'test'        => 'zw_slug_inkorter',
         ];
 
-        if (Generator::apiKey() === '') {
-            $result['status']      = 'critical';
-            $result['label']       = __('Slug Inkorter heeft geen OpenAI-sleutel', 'zw-slug-inkorter');
-            $result['description'] = '<p>' . esc_html__('Zet ZW_SLUG_INKORTER_API_KEY in wp-config.php. Tot die tijd houden berichten de lange slug van de titel.', 'zw-slug-inkorter') . '</p>';
+        if (!wp_supports_ai()) {
+            $result['status']      = 'recommended';
+            $result['label']       = __('Slug Inkorter staat uit, want AI staat uit op deze site', 'zw-slug-inkorter');
+            $result['description'] = '<p>' . esc_html__('Berichten houden de lange slug van de titel.', 'zw-slug-inkorter') . '</p>';
             return $result;
         }
 
@@ -79,6 +79,15 @@ final class Health
                 wp_date('j F Y H:i', (int) ($error['time'] ?? 0)),
                 (string) ($error['message'] ?? '')
             )) . '</p>';
+            return $result;
+        }
+
+        // Fetches the model list, so this also fails when the provider can't be reached.
+        if (!wp_ai_client_prompt('slug')->using_model_preference(Generator::MODEL)->is_supported_for_text_generation()) {
+            $result['status']      = 'critical';
+            $result['label']       = __('Slug Inkorter vindt geen AI-model voor tekst', 'zw-slug-inkorter');
+            $result['description'] = '<p>' . esc_html__('Er is geen AI-provider ingesteld, of de provider is nu niet bereikbaar. Tot die tijd houden berichten de lange slug van de titel.', 'zw-slug-inkorter') . '</p>';
+            $result['actions']     = '<p><a href="' . esc_url(admin_url('options-connectors.php')) . '">' . esc_html__('Naar Connectors', 'zw-slug-inkorter') . '</a></p>';
         }
 
         return $result;

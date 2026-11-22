@@ -1,6 +1,6 @@
 <?php
 /**
- * Asks OpenAI for a short slug.
+ * Asks the WordPress AI Client for a short slug.
  *
  * @package ZW_Slug_Inkorter
  */
@@ -9,122 +9,85 @@ declare(strict_types=1);
 
 namespace ZWSlugInkorter;
 
+use WordPress\AiClient\Providers\Http\DTO\RequestOptions;
+
 /**
- * Set ZW_SLUG_INKORTER_API_KEY in wp-config.php; ZW_SLUG_INKORTER_MODEL is optional.
+ * Uses the AI provider set up under Settings → Connectors.
  */
 final class Generator
 {
     public const MAX_LENGTH = 50;
 
-    private const ENDPOINT      = 'https://api.openai.com/v1/chat/completions';
-    private const DEFAULT_MODEL = 'gpt-4.1-mini';
+    /** Used when a provider offers it; otherwise WordPress picks a text model. Fast, and no reasoning by default. */
+    public const MODEL = 'gpt-5.4-mini';
 
     /** Publishing waits for the answer, so keep this short. */
-    private const TIMEOUT = 8;
+    private const TIMEOUT = 8.0;
 
-    private const SYSTEM = 'Je bent een native Nederlandse journalist met perfecte taalbeheersing. Je maakt URL slugs die grammaticaal correct Nederlands zijn - zoals een krantenkop. Geen kromme zinnen zoals "geen-nieuw-flexwoningen" maar natuurlijk Nederlands zoals "flexwoningen-project-stopgezet". Output is ALLEEN de slug.';
+    private const SYSTEM = 'Je bent eindredacteur van een regionale nieuwssite in West-Brabant. Je maakt korte URL-slugs die lezen als een kop in goed Nederlands. Je antwoordt alleen met de slug.';
 
-    private const PROMPT = 'Genereer een KORTE, NATUURLIJK LEESBARE URL-slug voor dit nieuwsartikel.
+    private const PROMPT = 'Maak een korte URL-slug voor dit nieuwsbericht.
 
-TITEL: %s
-EXCERPT: %s
+TITEL: %1$s
+SAMENVATTING: %2$s
+%3$s
+Regels:
+- 3 tot 6 woorden, liefst 25 tot 40 tekens, nooit meer dan %4$d.
+- Vat het nieuws samen zoals de titel dat doet. Gebruik alleen feiten uit de titel en de samenvatting.
+- Laat lidwoorden en vulwoorden weg (de, het, een, er, wordt, is). Een kort woord als "op" of "na" mag blijven als de slug anders krom leest.
+- Alleen kleine letters a-z, cijfers en koppeltekens. Geen accenten of apostroffen: "camera\'s" wordt "cameras".
+- Geen datum, weeknummer of jaartal, tenzij dat zelf het nieuws is.
+%5$s
+Goede voorbeelden:
+- woningbrand-appartement-roosendaal
+- fatbike-botst-op-bus-etten-leur
+- a58-dicht-na-botsing-vrachtwagens
+- illegaal-vuurwerk-gevonden-putte
 
-REGELS:
-1. IDEAAL: 25-40 tekens, MAXIMUM: %d tekens
-2. %s
-3. De slug moet NATUURLIJK lezen, zoals je het nieuws kort zou omschrijven
-4. Alleen a-z (lowercase), 0-9, en koppeltekens (-)
-5. Samengestelde woorden met koppelteken behouden: ja-ja-stickers
+Krom: geen-nieuw-flexwoningen. Goed: flexwoningen-project-stopgezet.
 
-VERWIJDER alle stopwoorden en hulpwerkwoorden (de, het, een, van, voor, in, op, wordt, moet, gaat, is, zijn, etc.)
-
-NATUURLIJK ZINSVERLOOP - zoals een krantenkop:
-- "woningbrand-appartement-roosendaal"
-- "brand-verwoest-garage-putte"
-- "fatbike-botst-op-bus-etten-leur"
-- "a58-dicht-na-botsing-vrachtwagens"
-- "illegaal-vuurwerk-gevonden-putte"
-- "flexwoningen-project-uitgesteld-etten-leur"
-
-VERMIJD onnatuurlijk Nederlands:
-- FOUT: "geen-nieuw-flexwoningen" → GOED: "flexwoningen-project-stopgezet"
-- FOUT: "meer-incidenten-moerdijk" → GOED: "reeks-incidenten-moerdijk"
-
-De slug moet klinken als een natuurlijke Nederlandse krantenkop.
-
-Geef ALLEEN de slug, geen uitleg of aanhalingstekens.';
+Antwoord alleen met de slug.';
 
     /**
-     * The key from wp-config.php, or an empty string.
+     * @param string       $title    Post title.
+     * @param string       $summary  Excerpt, or the start of the text.
+     * @param string|null  $region   Region name that should be in the slug.
+     * @param list<string> $rejected Earlier answers for this post, each with the reason it was not used.
      */
-    public static function apiKey(): string
+    public static function generate(string $title, string $summary, ?string $region, array $rejected = []): string|\WP_Error
     {
-        return defined('ZW_SLUG_INKORTER_API_KEY') ? trim((string) constant('ZW_SLUG_INKORTER_API_KEY')) : '';
-    }
+        $place = $region !== null
+            ? sprintf("PLAATS: %s. Deze plaats of streek staat één keer in de slug, bij voorkeur aan het eind.\n", $region)
+            : "PLAATS: zet de plaats uit de titel of samenvatting in de slug, bij voorkeur aan het eind.\n";
+        $retry = $rejected === [] ? '' : "\nDeze slugs kun je niet gebruiken:\n- " . implode("\n- ", $rejected) . "\n";
 
-    /**
-     * @param string      $title   Post title.
-     * @param string      $summary Excerpt, or the start of the text.
-     * @param string|null $region  Region name that should be in the slug.
-     */
-    public static function generate(string $title, string $summary, ?string $region): string|\WP_Error
-    {
-        $regionRule = $region !== null
-            ? sprintf('REGIO: "%s" - moet in de slug voorkomen, bij voorkeur vooraan maar mag ook elders als dat natuurlijker leest', $region)
-            : '';
+        $answer = wp_ai_client_prompt(sprintf(self::PROMPT, $title, $summary, $place, self::MAX_LENGTH, $retry))
+            ->using_system_instruction(self::SYSTEM)
+            ->using_max_tokens(300)
+            ->using_model_preference(self::MODEL)
+            ->using_request_options(RequestOptions::fromArray([RequestOptions::KEY_TIMEOUT => self::TIMEOUT]))
+            ->generate_text();
 
-        $response = wp_remote_post(self::ENDPOINT, [
-            'timeout' => self::TIMEOUT,
-            'headers' => [
-                'Authorization' => 'Bearer ' . self::apiKey(),
-                'Content-Type'  => 'application/json',
-            ],
-            'body'    => (string) wp_json_encode([
-                'model'                 => defined('ZW_SLUG_INKORTER_MODEL') ? (string) constant('ZW_SLUG_INKORTER_MODEL') : self::DEFAULT_MODEL,
-                'messages'              => [
-                    ['role' => 'system', 'content' => self::SYSTEM],
-                    ['role' => 'user', 'content' => sprintf(self::PROMPT, $title, $summary, self::MAX_LENGTH, $regionRule)],
-                ],
-                'max_completion_tokens' => 100,
-                'temperature'           => 0.2,
-            ]),
-        ]);
-
-        if (is_wp_error($response)) {
-            return $response;
+        if (is_wp_error($answer)) {
+            return $answer;
         }
 
-        $code = (int) wp_remote_retrieve_response_code($response);
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        if ($code !== 200) {
-            $error = is_array($body) && is_string($body['error']['message'] ?? null) ? $body['error']['message'] : '';
-            return new \WP_Error('zw_slug_inkorter_http', trim(sprintf('OpenAI gaf HTTP %d. %s', $code, $error)));
-        }
-
-        $answer = is_array($body) ? ($body['choices'][0]['message']['content'] ?? null) : null;
-        $slug   = is_string($answer) ? self::clean($answer) : '';
+        $slug = self::clean($answer);
         if ($slug === '') {
-            return new \WP_Error('zw_slug_inkorter_answer', 'OpenAI gaf geen bruikbare slug.');
+            return new \WP_Error('zw_slug_inkorter_answer', 'Het AI-model gaf geen bruikbare slug.');
         }
 
         return $slug;
     }
 
     /**
-     * Turn the answer into a slug of at most MAX_LENGTH characters, cut between words.
+     * Turn the first line of the answer into a slug.
      *
      * @param string $answer What the model answered.
      */
     public static function clean(string $answer): string
     {
-        // sanitize_title also drops quotes and outer hyphens.
-        $slug = sanitize_title((string) preg_replace('/\R.*/s', '', trim($answer)));
-
-        if (strlen($slug) > self::MAX_LENGTH) {
-            $cut  = substr($slug, 0, self::MAX_LENGTH + 1);
-            $slug = str_contains($cut, '-') ? substr($cut, 0, (int) strrpos($cut, '-')) : substr($cut, 0, self::MAX_LENGTH);
-        }
-
-        return $slug;
+        // sanitize_title also drops quotes, accents and outer hyphens.
+        return sanitize_title((string) preg_replace('/\R.*/s', '', trim($answer)));
     }
 }

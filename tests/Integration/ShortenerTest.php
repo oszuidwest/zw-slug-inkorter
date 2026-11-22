@@ -14,43 +14,12 @@ use ZWSlugInkorter\Shortener;
 
 final class ShortenerTest extends \WP_UnitTestCase
 {
-    /** @var list<array{url: string, args: array<string, mixed>}> */
-    private array $requests = [];
-
-    /** @var array<string, mixed>|\WP_Error Next response OpenAI gives. */
-    private array|\WP_Error $reply = [];
+    use FakesOpenAi;
 
     public function set_up(): void
     {
         parent::set_up();
-        $this->requests = [];
-        $this->answer('brand-verwoest-garage-putte');
-        add_filter('pre_http_request', [$this, 'fakeOpenAi'], 10, 3);
-    }
-
-    /**
-     * @param false|array<string, mixed> $pre
-     * @param array<string, mixed>       $args
-     * @return array<string, mixed>|\WP_Error
-     */
-    public function fakeOpenAi($pre, array $args, string $url): array|\WP_Error
-    {
-        $this->requests[] = ['url' => $url, 'args' => $args];
-        return $this->reply;
-    }
-
-    private function answer(string $content, int $code = 200): void
-    {
-        $body        = $code === 200
-            ? ['choices' => [['message' => ['content' => $content]]]]
-            : ['error' => ['message' => $content]];
-        $this->reply = ['response' => ['code' => $code, 'message' => ''], 'headers' => [], 'body' => (string) wp_json_encode($body), 'cookies' => []];
-    }
-
-    private function prompt(int $index = 0): string
-    {
-        $body = json_decode((string) $this->requests[$index]['args']['body'], true);
-        return (string) $body['messages'][1]['content'];
+        $this->fakeOpenAi('brand-verwoest-garage-putte');
     }
 
     private function publish(array $args = []): \WP_Post
@@ -65,8 +34,7 @@ final class ShortenerTest extends \WP_UnitTestCase
 
         $this->assertSame('brand-verwoest-garage-putte', $post->post_name);
         $this->assertCount(1, $this->requests);
-        $this->assertSame('https://api.openai.com/v1/chat/completions', $this->requests[0]['url']);
-        $this->assertSame('Bearer sk-test', $this->requests[0]['args']['headers']['Authorization']);
+        $this->assertSame('Bearer test-key', $this->requests[0]['args']['headers']['Authorization']);
         $this->assertStringContainsString('TITEL: Brand verwoest garage aan de Kerkstraat in Putte, niemand gewond', $this->prompt());
     }
 
@@ -81,7 +49,7 @@ final class ShortenerTest extends \WP_UnitTestCase
     {
         $this->publish(['post_excerpt' => 'Een garage in Putte is uitgebrand.', 'post_content' => '<!-- wp:paragraph --><p>Lange tekst</p><!-- /wp:paragraph -->']);
 
-        $this->assertStringContainsString('EXCERPT: Een garage in Putte is uitgebrand.', $this->prompt());
+        $this->assertStringContainsString('SAMENVATTING: Een garage in Putte is uitgebrand.', $this->prompt());
     }
 
     public function test_without_excerpt_the_text_is_sent_without_blocks_tags_or_shortcodes(): void
@@ -89,7 +57,7 @@ final class ShortenerTest extends \WP_UnitTestCase
         add_shortcode('kader', static fn (): string => '');
         $this->publish(['post_excerpt' => '', 'post_content' => '<!-- wp:paragraph --><p>De <strong>brandweer</strong> kwam snel.</p><!-- /wp:paragraph -->[kader]Info[/kader]']);
 
-        $this->assertStringContainsString("EXCERPT: De brandweer kwam snel.\n", $this->prompt());
+        $this->assertStringContainsString("SAMENVATTING: De brandweer kwam snel.\n", $this->prompt());
     }
 
     public function test_draft_is_left_alone(): void
@@ -175,13 +143,85 @@ final class ShortenerTest extends \WP_UnitTestCase
         $this->assertSame([], $this->requests);
     }
 
-    public function test_slug_is_made_unique(): void
+    public function test_taken_slug_is_asked_again_with_the_reason(): void
     {
-        $first  = $this->publish();
+        $this->publish();
+        $this->answers('brand-verwoest-garage-putte', 'garagebrand-kerkstraat-putte');
         $second = $this->publish();
 
-        $this->assertSame('brand-verwoest-garage-putte', $first->post_name);
-        $this->assertSame('brand-verwoest-garage-putte-2', $second->post_name);
+        $this->assertSame('garagebrand-kerkstraat-putte', $second->post_name);
+        $this->assertStringContainsString("Deze slugs kun je niet gebruiken:\n- brand-verwoest-garage-putte (bestaat al)", $this->prompt(2));
+    }
+
+    public function test_slug_that_stays_taken_gives_the_title_slug_instead_of_a_number(): void
+    {
+        $this->publish();
+        $second = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $second->post_name);
+        $this->assertCount(3, $this->requests);
+        $this->assertFalse(get_option(Health::OPTION));
+    }
+
+    public function test_slug_taken_by_a_scheduled_post_counts_as_taken(): void
+    {
+        $this->publish(['post_status' => 'future', 'post_date' => gmdate('Y-m-d H:i:s', time() + DAY_IN_SECONDS)]);
+        $second = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $second->post_name);
+    }
+
+    public function test_too_long_slug_is_asked_again(): void
+    {
+        $long = 'brand-verwoest-garage-aan-de-kerkstraat-in-putte-vannacht';
+        $this->answers($long, 'brand-verwoest-garage-putte');
+        $post = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-putte', $post->post_name);
+        $this->assertStringContainsString("- {$long} (te lang, meer dan 50 tekens)", $this->prompt(1));
+    }
+
+    public function test_slug_of_exactly_the_maximum_length_is_used(): void
+    {
+        $slug = str_repeat('a', 25) . '-' . str_repeat('b', 24);
+        $this->answers($slug);
+
+        $this->assertSame($slug, $this->publish()->post_name);
+        $this->assertCount(1, $this->requests);
+    }
+
+    public function test_slug_one_character_over_the_maximum_is_asked_again(): void
+    {
+        $this->answers(str_repeat('a', 25) . '-' . str_repeat('b', 25), 'brand-verwoest-garage-putte');
+
+        $this->assertSame('brand-verwoest-garage-putte', $this->publish()->post_name);
+        $this->assertCount(2, $this->requests);
+    }
+
+    public function test_title_slug_fallback_still_clears_an_old_failure(): void
+    {
+        update_option(Health::OPTION, ['time' => time(), 'message' => 'kapot'], false);
+        $this->answer('brand-verwoest-garage-aan-de-kerkstraat-in-putte-vannacht');
+        $this->publish();
+
+        $this->assertFalse(get_option(Health::OPTION));
+    }
+
+    public function test_too_long_twice_gives_the_title_slug(): void
+    {
+        $this->answer('brand-verwoest-garage-aan-de-kerkstraat-in-putte-vannacht');
+        $post = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
+        $this->assertCount(2, $this->requests);
+    }
+
+    public function test_without_a_region_the_place_comes_from_the_title(): void
+    {
+        $this->publish();
+
+        $this->assertStringContainsString('PLAATS: zet de plaats uit de titel of samenvatting in de slug', $this->prompt());
+        $this->assertStringNotContainsString('niet gebruiken', $this->prompt());
     }
 
     public function test_post_types_without_a_public_url_are_skipped(): void
@@ -207,7 +247,7 @@ final class ShortenerTest extends \WP_UnitTestCase
         $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
         $test = Health::test();
         $this->assertSame('critical', $test['status']);
-        $this->assertStringContainsString('OpenAI gaf HTTP 401. The project you are requesting has been archived', $test['description']);
+        $this->assertStringContainsString('Unauthorized (401) - The project you are requesting has been archived', $test['description']);
 
         $this->answer('brand-verwoest-garage-putte');
         $this->publish();
@@ -221,28 +261,71 @@ final class ShortenerTest extends \WP_UnitTestCase
         $post        = $this->publish();
 
         $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
-        $this->assertSame('cURL error 28: Operation timed out', get_option(Health::OPTION)['message']);
+        $this->assertStringContainsString('cURL error 28: Operation timed out', get_option(Health::OPTION)['message']);
     }
 
-    public function test_unexpected_answer_keeps_the_title_slug(): void
+    public function test_malformed_answer_keeps_the_title_slug(): void
     {
-        $this->reply = ['response' => ['code' => 200, 'message' => ''], 'headers' => [], 'body' => '{"choices":[]}', 'cookies' => []];
+        $this->reply = self::json(200, ['output' => []]);
         $post        = $this->publish();
 
         $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
-        $this->assertSame('OpenAI gaf geen bruikbare slug.', get_option(Health::OPTION)['message']);
+        $this->assertIsArray(get_option(Health::OPTION));
     }
 
-    public function test_request_is_shaped_for_chat_completions(): void
+    public function test_answer_without_usable_slug_keeps_the_title_slug(): void
+    {
+        $this->answer('  "---"  ');
+        $post        = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
+        $this->assertSame('Het AI-model gaf geen bruikbare slug.', get_option(Health::OPTION)['message']);
+    }
+
+    public function test_request_uses_the_preferred_model_and_a_short_timeout(): void
     {
         $this->publish();
-        $body = json_decode((string) $this->requests[0]['args']['body'], true);
+        $body = $this->requests[0]['body'];
 
-        $this->assertSame('gpt-4.1-mini', $body['model']);
-        $this->assertSame('system', $body['messages'][0]['role']);
-        $this->assertSame(100, $body['max_completion_tokens']);
-        $this->assertSame(8, $this->requests[0]['args']['timeout']);
-        $this->assertStringContainsString('MAXIMUM: 50 tekens', $this->prompt());
+        $this->assertSame('gpt-5.4-mini', $body['model']);
+        $this->assertStringContainsString('eindredacteur', $body['instructions']);
+        $this->assertSame(300, $body['max_output_tokens']);
+        $this->assertEquals(8, $this->requests[0]['args']['timeout']);
+        $this->assertStringContainsString('nooit meer dan 50', $this->prompt());
+    }
+
+    public function test_without_a_text_model_the_title_slug_stays_and_is_reported(): void
+    {
+        $this->reply = self::json(500, ['error' => ['message' => 'not used']]);
+        remove_filter('pre_http_request', [$this, 'interceptOpenAi'], 10);
+        add_filter('pre_http_request', fn ($pre, array $args, string $url) => $url === 'https://api.openai.com/v1/models' ? self::json(200, ['data' => []]) : $pre, 10, 3);
+        wp_cache_flush();
+        $post = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
+        $this->assertStringContainsString('No models found', get_option(Health::OPTION)['message']);
+    }
+
+    public function test_falls_back_to_another_text_model_without_the_preferred_one(): void
+    {
+        remove_filter('pre_http_request', [$this, 'interceptOpenAi'], 10);
+        add_filter('pre_http_request', fn ($pre, array $args, string $url) => $url === 'https://api.openai.com/v1/models' ? self::json(200, ['data' => [['id' => 'gpt-4.1']]]) : $this->interceptOpenAi($pre, $args, $url), 10, 3);
+        wp_cache_flush();
+        $post = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-putte', $post->post_name);
+        $this->assertSame('gpt-4.1', $this->requests[0]['body']['model']);
+    }
+
+    public function test_nothing_happens_when_ai_is_switched_off(): void
+    {
+        add_filter('wp_supports_ai', '__return_false');
+        $post = $this->publish();
+
+        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
+        $this->assertSame([], $this->openAiUrls);
+        $this->assertFalse(get_option(Health::OPTION));
+        $this->assertSame('recommended', Health::test()['status']);
     }
 
     public function test_filter_returns_data_untouched_when_nothing_applies(): void

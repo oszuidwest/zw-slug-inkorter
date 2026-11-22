@@ -24,13 +24,14 @@ if (is_string($zw_slug_inkorter_tests_config) && $zw_slug_inkorter_tests_config 
     }
 }
 
-define('ZW_SLUG_INKORTER_API_KEY', 'sk-test');
-
 require_once $zw_slug_inkorter_tests_dir . '/includes/functions.php';
 
 tests_add_filter('muplugins_loaded', static function (): void {
+    // The OpenAI provider from wp-env, with the key the Connectors screen would store.
+    require WP_PLUGIN_DIR . '/ai-provider-for-openai/plugin.php';
     require dirname(__DIR__) . '/zw-slug-inkorter.php';
 });
+tests_add_filter('pre_option_connectors_ai_openai_api_key', static fn (): string => 'test-key');
 
 // The theme registers the region taxonomy on init, before the plugin looks for it.
 tests_add_filter('init', static function (): void {
