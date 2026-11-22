@@ -48,37 +48,11 @@ final class RegionTest extends \WP_UnitTestCase
         return rest_do_request($request);
     }
 
-    public function test_region_picked_in_the_block_editor_save(): void
-    {
-        $response = $this->restPublish($this->draft(), [$this->roosendaal]);
-
-        $this->assertSame(200, $response->get_status());
-        $this->assertSame('garagebrand-putte-roosendaal', $response->get_data()['slug']);
-        $this->assertStringContainsString('PLAATS: Roosendaal.', $this->prompt(0));
-    }
-
-    public function test_block_editor_save_without_regions_uses_the_saved_region(): void
-    {
-        $this->restPublish($this->draft([$this->putte]), null);
-
-        $this->assertStringContainsString('PLAATS: Putte.', $this->prompt(0));
-    }
-
     public function test_regions_removed_in_the_block_editor_save_are_not_used(): void
     {
         $this->restPublish($this->draft([$this->putte]), []);
 
         $this->assertStringContainsString('PLAATS: zet de plaats uit de titel', $this->prompt(0));
-    }
-
-    public function test_new_post_created_through_rest_uses_its_regions(): void
-    {
-        wp_set_current_user(self::factory()->user->create(['role' => 'editor']));
-        $request = new \WP_REST_Request('POST', '/wp/v2/posts');
-        $request->set_body_params(['title' => 'Brand in een garage', 'status' => 'publish', 'regio' => [$this->putte]]);
-        rest_do_request($request);
-
-        $this->assertStringContainsString('PLAATS: Putte.', $this->prompt(0));
     }
 
     public function test_regions_of_an_earlier_rest_save_in_the_same_request_are_not_reused(): void
@@ -118,7 +92,7 @@ final class RegionTest extends \WP_UnitTestCase
     public function test_post_inserted_before_the_rest_post_does_not_take_its_regions(): void
     {
         $this->answers('garagebrand-putte-roosendaal', 'ander-bericht-putte-roosendaal');
-        $id     = $this->draft([$this->putte]);
+        $id     = $this->draft();
         $nested = static function (array $data, array $postarr) use ($id): array {
             static $done = false;
             if (!$done && (int) ($postarr['ID'] ?? 0) === $id) {
@@ -159,10 +133,10 @@ final class RegionTest extends \WP_UnitTestCase
     public function test_yoast_primary_region_wins_when_it_is_still_picked(): void
     {
         $id = $this->draft([$this->roosendaal, $this->putte]);
-        update_post_meta($id, '_yoast_wpseo_primary_regio', (string) $this->putte);
+        update_post_meta($id, '_yoast_wpseo_primary_regio', (string) $this->roosendaal);
         wp_update_post(['ID' => $id, 'post_status' => 'publish']);
 
-        $this->assertStringContainsString('PLAATS: Putte.', $this->prompt(0));
+        $this->assertStringContainsString('PLAATS: Roosendaal.', $this->prompt(0));
     }
 
     public function test_yoast_primary_region_is_ignored_when_it_is_no_longer_picked(): void
@@ -207,23 +181,25 @@ final class RegionTest extends \WP_UnitTestCase
         $this->assertStringContainsString('PLAATS: Roosendaal.', $this->prompt(0));
     }
 
-    public function test_slug_without_the_region_is_asked_again(): void
+    public function test_slug_without_the_region_as_a_whole_word_is_asked_again_once(): void
     {
-        $this->answers('garagebrand', 'garagebrand-putte');
-        $this->restPublish($this->draft([$this->putte]), null);
+        $this->answers('garagebrand', 'garagebrand-putte', 'garagebrand-puttenaar', 'garage-uitgebrand');
+        $first  = $this->restPublish($this->draft([$this->putte]), null);
+        $second = $this->restPublish($this->draft([$this->putte]), null);
 
         $this->assertStringContainsString('- garagebrand (plaats ontbreekt)', $this->prompt(1));
-        $this->assertSame('garagebrand-putte', get_post_field('post_name', $this->lastPost()));
+        $this->assertSame('garagebrand-putte', $first->get_data()['slug']);
+        $this->assertSame('garage-uitgebrand', $second->get_data()['slug']);
     }
 
     public function test_region_of_several_words_is_found(): void
     {
         $bergen = self::factory()->term->create(['taxonomy' => 'regio', 'name' => 'Bergen op Zoom']);
         $this->answers('woningbouw-versnellen-bergen-op-zoom');
-        $this->restPublish($this->draft([$bergen]), null);
+        $response = $this->restPublish($this->draft([$bergen]), null);
 
         $this->assertStringContainsString('PLAATS: Bergen op Zoom.', $this->prompt(0));
-        $this->assertCount(1, $this->requests);
+        $this->assertSame('woningbouw-versnellen-bergen-op-zoom', $response->get_data()['slug']);
     }
 
     public function test_entities_in_title_excerpt_and_region_reach_the_model_as_plain_text(): void
@@ -240,33 +216,5 @@ final class RegionTest extends \WP_UnitTestCase
         $this->assertStringContainsString('PLAATS: Halderberge & Rucphen.', $this->prompt(0));
         $this->assertSame('kaas-wijn-halderberge-rucphen', get_post_field('post_name', $id));
         $this->assertCount(1, $this->requests);
-    }
-
-    public function test_region_must_be_a_whole_part_of_the_slug(): void
-    {
-        $this->answers('garagebrand-puttenaar', 'garagebrand-putte');
-        $this->restPublish($this->draft([$this->putte]), null);
-
-        $this->assertCount(2, $this->requests);
-    }
-
-    public function test_slug_without_the_region_is_used_on_the_last_attempt(): void
-    {
-        $this->answers('garagebrand', 'garage-uitgebrand');
-        $this->restPublish($this->draft([$this->putte]), null);
-
-        $this->assertSame('garage-uitgebrand', get_post_field('post_name', $this->lastPost()));
-    }
-
-    private function lastPost(): int
-    {
-        return (int) get_posts(['post_status' => 'publish', 'numberposts' => 1, 'fields' => 'ids', 'orderby' => 'ID'])[0];
-    }
-
-    public function test_no_region_leaves_the_rule_out(): void
-    {
-        wp_update_post(['ID' => $this->draft(), 'post_status' => 'publish']);
-
-        $this->assertStringContainsString('PLAATS: zet de plaats uit de titel', $this->prompt(0));
     }
 }

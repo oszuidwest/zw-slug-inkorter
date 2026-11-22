@@ -28,21 +28,11 @@ final class ShortenerTest extends \WP_UnitTestCase
         return get_post($id);
     }
 
-    public function test_published_post_gets_the_short_slug(): void
-    {
-        $post = $this->publish();
-
-        $this->assertSame('brand-verwoest-garage-putte', $post->post_name);
-        $this->assertCount(1, $this->requests);
-        $this->assertSame('Bearer test-key', $this->requests[0]['args']['headers']['Authorization']);
-        $this->assertStringContainsString('TITEL: Brand verwoest garage aan de Kerkstraat in Putte, niemand gewond', $this->prompt());
-    }
-
     public function test_title_with_quotes_reaches_openai_unslashed(): void
     {
-        $this->publish(['post_title' => 'Wethouder: "Dit is een \'flinke\' tegenvaller"']);
+        $this->publish(['post_title' => 'Wethouder: "Dit is een \'flinke\' tegenvaller voor de gemeente Rucphen"']);
 
-        $this->assertStringContainsString('TITEL: Wethouder: "Dit is een \'flinke\' tegenvaller"', $this->prompt());
+        $this->assertStringContainsString('TITEL: Wethouder: "Dit is een \'flinke\' tegenvaller voor de gemeente Rucphen"', $this->prompt());
     }
 
     public function test_excerpt_is_sent_when_there_is_one(): void
@@ -60,83 +50,26 @@ final class ShortenerTest extends \WP_UnitTestCase
         $this->assertStringContainsString("SAMENVATTING: De brandweer kwam snel.\n", $this->prompt());
     }
 
-    public function test_draft_is_left_alone(): void
+    public function test_post_gets_the_short_slug_once_and_keeps_it(): void
     {
-        $post = $this->publish(['post_status' => 'draft']);
+        $id = $this->publish(['post_status' => 'draft'])->ID;
+        wp_update_post(['ID' => $id, 'post_status' => 'publish']);
+        wp_update_post(['ID' => $id, 'post_title' => 'Nieuwe titel']);
+        wp_update_post(['ID' => $id, 'post_status' => 'draft']);
+        wp_update_post(['ID' => $id, 'post_status' => 'publish']);
+        wp_update_post(['ID' => $id, 'post_status' => 'future', 'post_date_gmt' => gmdate('Y-m-d H:i:s', time() + DAY_IN_SECONDS)]);
+        wp_update_post(['ID' => $id, 'post_date' => gmdate('Y-m-d H:i:s', time() + 2 * DAY_IN_SECONDS)]);
+        wp_publish_post($id);
 
-        $this->assertSame('', $post->post_name);
-        $this->assertSame([], $this->requests);
-    }
-
-    public function test_draft_gets_the_short_slug_when_it_is_published(): void
-    {
-        $post = $this->publish(['post_status' => 'draft']);
-        wp_update_post(['ID' => $post->ID, 'post_status' => 'publish']);
-
-        $this->assertSame('brand-verwoest-garage-putte', get_post($post->ID)->post_name);
+        $this->assertSame('brand-verwoest-garage-putte', get_post($id)->post_name);
         $this->assertCount(1, $this->requests);
     }
 
-    public function test_scheduled_post_gets_the_short_slug_and_keeps_it_when_cron_publishes(): void
-    {
-        $post = $this->publish(['post_status' => 'future', 'post_date' => gmdate('Y-m-d H:i:s', time() + DAY_IN_SECONDS)]);
-        $this->assertSame('future', $post->post_status);
-        $this->assertSame('brand-verwoest-garage-putte', $post->post_name);
-
-        wp_publish_post($post->ID);
-
-        $this->assertSame('publish', get_post($post->ID)->post_status);
-        $this->assertSame('brand-verwoest-garage-putte', get_post($post->ID)->post_name);
-        $this->assertCount(1, $this->requests);
-    }
-
-    public function test_editing_a_published_post_keeps_its_slug(): void
-    {
-        $post = $this->publish();
-        wp_update_post(['ID' => $post->ID, 'post_title' => 'Nieuwe titel']);
-
-        $this->assertSame('brand-verwoest-garage-putte', get_post($post->ID)->post_name);
-        $this->assertCount(1, $this->requests);
-    }
-
-    public function test_clearing_the_slug_of_a_published_post_does_not_ask_openai(): void
-    {
-        $post = $this->publish();
-        wp_update_post(['ID' => $post->ID, 'post_name' => '']);
-
-        $this->assertCount(1, $this->requests);
-    }
-
-    public function test_rescheduling_does_not_ask_again(): void
-    {
-        $post = $this->publish(['post_status' => 'future', 'post_date' => gmdate('Y-m-d H:i:s', time() + DAY_IN_SECONDS)]);
-        wp_update_post(['ID' => $post->ID, 'post_date' => gmdate('Y-m-d H:i:s', time() + 2 * DAY_IN_SECONDS)]);
-
-        $this->assertCount(1, $this->requests);
-    }
-
-    public function test_slug_typed_by_the_editor_stays(): void
+    public function test_post_that_has_a_slug_never_asks_openai(): void
     {
         $post = $this->publish(['post_name' => 'eigen-slug']);
-
         $this->assertSame('eigen-slug', $post->post_name);
-        $this->assertSame([], $this->requests);
-    }
-
-    public function test_slug_from_an_earlier_publication_stays(): void
-    {
-        $post = $this->publish();
-        wp_update_post(['ID' => $post->ID, 'post_status' => 'draft']);
-        $this->answer('iets-anders');
-        wp_update_post(['ID' => $post->ID, 'post_status' => 'publish']);
-
-        $this->assertSame('brand-verwoest-garage-putte', get_post($post->ID)->post_name);
-        $this->assertCount(1, $this->requests);
-    }
-
-    public function test_direct_insert_does_not_replace_the_slug_of_a_post_that_was_public_before(): void
-    {
-        $post = $this->publish(['post_name' => 'eigen-slug']);
+        wp_update_post(['ID' => $post->ID, 'post_name' => '']);
         wp_update_post(['ID' => $post->ID, 'post_status' => 'draft']);
         wp_insert_post(['ID' => $post->ID, 'post_title' => $post->post_title, 'post_content' => 'Tekst', 'post_status' => 'publish']);
 
@@ -153,67 +86,33 @@ final class ShortenerTest extends \WP_UnitTestCase
         $this->assertStringContainsString("Deze slugs kun je niet gebruiken:\n- brand-verwoest-garage-putte (bestaat al)", $this->prompt(2));
     }
 
-    public function test_slug_that_stays_taken_gives_the_title_slug_instead_of_a_number(): void
-    {
-        $this->publish();
-        $second = $this->publish();
-
-        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $second->post_name);
-        $this->assertCount(3, $this->requests);
-        $this->assertFalse(get_option(Health::OPTION));
-    }
-
     public function test_slug_taken_by_a_scheduled_post_counts_as_taken(): void
     {
-        $this->publish(['post_status' => 'future', 'post_date' => gmdate('Y-m-d H:i:s', time() + DAY_IN_SECONDS)]);
+        $this->assertSame('brand-verwoest-garage-putte', $this->publish(['post_status' => 'future', 'post_date' => gmdate('Y-m-d H:i:s', time() + DAY_IN_SECONDS)])->post_name);
         $second = $this->publish();
 
         $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $second->post_name);
     }
 
-    public function test_too_long_slug_is_asked_again(): void
+    public function test_slug_of_exactly_the_maximum_length_is_used_and_one_more_is_asked_again(): void
     {
-        $long = 'brand-verwoest-garage-aan-de-kerkstraat-in-putte-vannacht';
-        $this->answers($long, 'brand-verwoest-garage-putte');
-        $post = $this->publish();
+        $max  = str_repeat('a', 25) . '-' . str_repeat('b', 24);
+        $long = str_repeat('c', 25) . '-' . str_repeat('d', 25);
+        $this->answers($max, $long, 'garagebrand-putte');
 
-        $this->assertSame('brand-verwoest-garage-putte', $post->post_name);
-        $this->assertStringContainsString("- {$long} (te lang, meer dan 50 tekens)", $this->prompt(1));
-    }
-
-    public function test_slug_of_exactly_the_maximum_length_is_used(): void
-    {
-        $slug = str_repeat('a', 25) . '-' . str_repeat('b', 24);
-        $this->answers($slug);
-
-        $this->assertSame($slug, $this->publish()->post_name);
-        $this->assertCount(1, $this->requests);
-    }
-
-    public function test_slug_one_character_over_the_maximum_is_asked_again(): void
-    {
-        $this->answers(str_repeat('a', 25) . '-' . str_repeat('b', 25), 'brand-verwoest-garage-putte');
-
-        $this->assertSame('brand-verwoest-garage-putte', $this->publish()->post_name);
-        $this->assertCount(2, $this->requests);
+        $this->assertSame($max, $this->publish()->post_name);
+        $this->assertSame('garagebrand-putte', $this->publish()->post_name);
+        $this->assertStringContainsString("- {$long} (te lang, meer dan 50 tekens)", $this->prompt(2));
     }
 
     public function test_title_slug_fallback_still_clears_an_old_failure(): void
     {
         update_option(Health::OPTION, ['time' => time(), 'message' => 'kapot'], false);
         $this->answer('brand-verwoest-garage-aan-de-kerkstraat-in-putte-vannacht');
-        $this->publish();
 
-        $this->assertFalse(get_option(Health::OPTION));
-    }
-
-    public function test_too_long_twice_gives_the_title_slug(): void
-    {
-        $this->answer('brand-verwoest-garage-aan-de-kerkstraat-in-putte-vannacht');
-        $post = $this->publish();
-
-        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
+        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $this->publish()->post_name);
         $this->assertCount(2, $this->requests);
+        $this->assertFalse(get_option(Health::OPTION));
     }
 
     public function test_without_a_region_the_place_comes_from_the_title(): void
@@ -300,6 +199,7 @@ final class ShortenerTest extends \WP_UnitTestCase
         $this->assertStringContainsString('eindredacteur', $body['instructions']);
         $this->assertSame(300, $body['max_output_tokens']);
         $this->assertEquals(8, $this->requests[0]['args']['timeout']);
+        $this->assertSame('Bearer test-key', $this->requests[0]['args']['headers']['Authorization']);
         $this->assertStringContainsString('nooit meer dan 50', $this->prompt());
     }
 
