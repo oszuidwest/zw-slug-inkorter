@@ -50,7 +50,7 @@ final class HealthTest extends \WP_UnitTestCase
         $description = Health::test()['description'];
 
         $this->assertStringContainsString('&lt;b&gt;kapot&lt;/b&gt;', $description);
-        $this->assertStringContainsString('2026', $description);
+        $this->assertStringContainsString('24 April 2026 10:00', $description);
     }
 
     public function test_failure_option_is_not_autoloaded(): void

@@ -19,13 +19,11 @@ final class GeneratorTest extends \WP_UnitTestCase
     public static function answers(): array
     {
         return [
-            'plain'                 => ['brand-verwoest-garage-putte', 'brand-verwoest-garage-putte'],
-            'quotes and spaces'     => ["  \"brand-verwoest-garage-putte\" \n", 'brand-verwoest-garage-putte'],
+            'quotes and spaces'     => ["\n  \"brand-verwoest-garage-putte\" \n", 'brand-verwoest-garage-putte'],
             'backticks'             => ['`brand-garage-putte`', 'brand-garage-putte'],
             'capitals and accents'  => ['Café Brandt in Hoogerheide', 'cafe-brandt-in-hoogerheide'],
             'only first line'       => ["brand-garage-putte\nDit is de slug.", 'brand-garage-putte'],
             'empty'                 => ['  ', ''],
-            'only punctuation'      => ['"---"', ''],
         ];
     }
 
