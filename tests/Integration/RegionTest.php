@@ -226,6 +226,22 @@ final class RegionTest extends \WP_UnitTestCase
         $this->assertCount(1, $this->requests);
     }
 
+    public function test_entities_in_title_excerpt_and_region_reach_the_model_as_plain_text(): void
+    {
+        $region = self::factory()->term->create(['taxonomy' => 'regio', 'name' => 'Halderberge & Rucphen']);
+        $this->assertSame('Halderberge &amp; Rucphen', get_term($region)->name);
+        $id = self::factory()->post->create(['post_title' => 'Kaas &amp; wijn in Putte', 'post_excerpt' => 'Het &#039;proeflokaal&#039; opent.', 'post_status' => 'draft']);
+        wp_set_post_terms($id, [$region], 'regio');
+        $this->answers('kaas-wijn-halderberge-rucphen');
+        $this->restPublish($id, null);
+
+        $this->assertStringContainsString("TITEL: Kaas & wijn in Putte\n", $this->prompt(0));
+        $this->assertStringContainsString("SAMENVATTING: Het 'proeflokaal' opent.\n", $this->prompt(0));
+        $this->assertStringContainsString('PLAATS: Halderberge & Rucphen.', $this->prompt(0));
+        $this->assertSame('kaas-wijn-halderberge-rucphen', get_post_field('post_name', $id));
+        $this->assertCount(1, $this->requests);
+    }
+
     public function test_region_must_be_a_whole_part_of_the_slug(): void
     {
         $this->answers('garagebrand-puttenaar', 'garagebrand-putte');
