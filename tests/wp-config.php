@@ -4,20 +4,20 @@
  *
  * Uses wp-env credentials with an isolated table prefix.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-$zw_slug_inkorter_env = static function (string $name, string $default): string {
+$zw_slug_sniper_env = static function (string $name, string $default): string {
     $value = getenv($name);
     return is_string($value) && $value !== '' ? $value : $default;
 };
 
-define('DB_NAME', $zw_slug_inkorter_env('WORDPRESS_DB_NAME', 'wordpress'));
-define('DB_USER', $zw_slug_inkorter_env('WORDPRESS_DB_USER', 'root'));
-define('DB_PASSWORD', $zw_slug_inkorter_env('WORDPRESS_DB_PASSWORD', 'password'));
-define('DB_HOST', $zw_slug_inkorter_env('WORDPRESS_DB_HOST', 'mysql'));
+define('DB_NAME', $zw_slug_sniper_env('WORDPRESS_DB_NAME', 'wordpress'));
+define('DB_USER', $zw_slug_sniper_env('WORDPRESS_DB_USER', 'root'));
+define('DB_PASSWORD', $zw_slug_sniper_env('WORDPRESS_DB_PASSWORD', 'password'));
+define('DB_HOST', $zw_slug_sniper_env('WORDPRESS_DB_HOST', 'mysql'));
 define('DB_CHARSET', 'utf8mb4');
 define('DB_COLLATE', '');
 
@@ -25,11 +25,11 @@ $table_prefix = 'wptests_'; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
 
 define('WP_TESTS_DOMAIN', 'example.org');
 define('WP_TESTS_EMAIL', 'admin@example.org');
-define('WP_TESTS_TITLE', 'ZuidWest Slug Inkorter tests');
+define('WP_TESTS_TITLE', 'ZuidWest Slug Sniper tests');
 define('WP_PHP_BINARY', 'php');
 define('WP_DEBUG', true);
 define('WPLANG', '');
 
 if (!defined('ABSPATH')) {
-    define('ABSPATH', $zw_slug_inkorter_env('ZW_SLUG_INKORTER_TESTS_ABSPATH', '/var/www/html/'));
+    define('ABSPATH', $zw_slug_sniper_env('ZW_SLUG_SNIPER_TESTS_ABSPATH', '/var/www/html/'));
 }

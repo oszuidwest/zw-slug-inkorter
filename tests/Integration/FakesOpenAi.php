@@ -2,12 +2,12 @@
 /**
  * Answers the OpenAI provider's requests without the network.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter\Tests\Integration;
+namespace ZWSlugSniper\Tests\Integration;
 
 trait FakesOpenAi
 {

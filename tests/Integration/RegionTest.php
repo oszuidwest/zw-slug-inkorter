@@ -2,12 +2,12 @@
 /**
  * Which region ends up in the prompt.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter\Tests\Integration;
+namespace ZWSlugSniper\Tests\Integration;
 
 final class RegionTest extends \WP_UnitTestCase
 {

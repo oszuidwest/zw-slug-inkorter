@@ -1,5 +1,5 @@
 {
-    "name": "oszuidwest/zw-slug-inkorter",
+    "name": "oszuidwest/zw-slug-sniper",
     "description": "Gives new WordPress posts a short slug made by OpenAI when they are first published or scheduled.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
@@ -19,12 +19,12 @@
     },
     "autoload": {
         "psr-4": {
-            "ZWSlugInkorter\\": "src/"
+            "ZWSlugSniper\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "ZWSlugInkorter\\Tests\\": "tests/"
+            "ZWSlugSniper\\Tests\\": "tests/"
         }
     },
     "scripts": {

@@ -2,14 +2,14 @@
 /**
  * Cleaning up what OpenAI answers.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter\Tests\Integration;
+namespace ZWSlugSniper\Tests\Integration;
 
-use ZWSlugInkorter\Generator;
+use ZWSlugSniper\Generator;
 
 final class GeneratorTest extends \WP_UnitTestCase
 {

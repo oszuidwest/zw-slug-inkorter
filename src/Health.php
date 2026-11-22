@@ -2,19 +2,19 @@
 /**
  * Site Health check, so a broken key does not go unnoticed.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter;
+namespace ZWSlugSniper;
 
 /**
  * Keeps the last failure until the next slug is made.
  */
 final class Health
 {
-    public const OPTION = 'zw_slug_inkorter_last_error';
+    public const OPTION = 'zw_slug_sniper_last_error';
 
     /**
      * @param string $message What went wrong.
@@ -22,7 +22,7 @@ final class Health
     public static function recordFailure(string $message): void
     {
         update_option(self::OPTION, ['time' => time(), 'message' => $message], false);
-        error_log('zw-slug-inkorter: ' . $message); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Also in the server log.
+        error_log('zw-slug-sniper: ' . $message); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Also in the server log.
     }
 
     /**
@@ -41,8 +41,8 @@ final class Health
      */
     public static function register(array $tests): array
     {
-        $tests['direct']['zw_slug_inkorter'] = [
-            'label' => __('Slug Inkorter', 'zw-slug-inkorter'),
+        $tests['direct']['zw_slug_sniper'] = [
+            'label' => __('Slug Sniper', 'zw-slug-sniper'),
             'test'  => [self::class, 'test'],
         ];
         return $tests;
@@ -54,28 +54,28 @@ final class Health
     public static function test(): array
     {
         $result = [
-            'label'       => __('Slug Inkorter maakt korte slugs', 'zw-slug-inkorter'),
+            'label'       => __('Slug Sniper maakt korte slugs', 'zw-slug-sniper'),
             'status'      => 'good',
-            'badge'       => ['label' => __('Slug Inkorter', 'zw-slug-inkorter'), 'color' => 'blue'],
-            'description' => '<p>' . esc_html__('Nieuwe berichten krijgen bij publiceren of inplannen een korte slug.', 'zw-slug-inkorter') . '</p>',
+            'badge'       => ['label' => __('Slug Sniper', 'zw-slug-sniper'), 'color' => 'blue'],
+            'description' => '<p>' . esc_html__('Nieuwe berichten krijgen bij publiceren of inplannen een korte slug.', 'zw-slug-sniper') . '</p>',
             'actions'     => '',
-            'test'        => 'zw_slug_inkorter',
+            'test'        => 'zw_slug_sniper',
         ];
 
         if (!wp_supports_ai()) {
             $result['status']      = 'recommended';
-            $result['label']       = __('Slug Inkorter staat uit, want AI staat uit op deze site', 'zw-slug-inkorter');
-            $result['description'] = '<p>' . esc_html__('Berichten houden de lange slug van de titel.', 'zw-slug-inkorter') . '</p>';
+            $result['label']       = __('Slug Sniper staat uit, want AI staat uit op deze site', 'zw-slug-sniper');
+            $result['description'] = '<p>' . esc_html__('Berichten houden de lange slug van de titel.', 'zw-slug-sniper') . '</p>';
             return $result;
         }
 
         $error = get_option(self::OPTION);
         if (is_array($error)) {
             $result['status']      = 'critical';
-            $result['label']       = __('Slug Inkorter kon de laatste slug niet maken', 'zw-slug-inkorter');
+            $result['label']       = __('Slug Sniper kon de laatste slug niet maken', 'zw-slug-sniper');
             $result['description'] = '<p>' . esc_html(sprintf(
                 /* translators: 1: date and time, 2: error message */
-                __('Op %1$s ging het mis: %2$s Het bericht hield de lange slug van de titel.', 'zw-slug-inkorter'),
+                __('Op %1$s ging het mis: %2$s Het bericht hield de lange slug van de titel.', 'zw-slug-sniper'),
                 wp_date('j F Y H:i', (int) ($error['time'] ?? 0)),
                 (string) ($error['message'] ?? '')
             )) . '</p>';
@@ -85,9 +85,9 @@ final class Health
         // Fetches the model list, so this also fails when the provider can't be reached.
         if (!wp_ai_client_prompt('slug')->using_model_preference(Generator::MODEL)->is_supported_for_text_generation()) {
             $result['status']      = 'critical';
-            $result['label']       = __('Slug Inkorter vindt geen AI-model voor tekst', 'zw-slug-inkorter');
-            $result['description'] = '<p>' . esc_html__('Er is geen AI-provider ingesteld, of de provider is nu niet bereikbaar. Tot die tijd houden berichten de lange slug van de titel.', 'zw-slug-inkorter') . '</p>';
-            $result['actions']     = '<p><a href="' . esc_url(admin_url('options-connectors.php')) . '">' . esc_html__('Naar Connectors', 'zw-slug-inkorter') . '</a></p>';
+            $result['label']       = __('Slug Sniper vindt geen AI-model voor tekst', 'zw-slug-sniper');
+            $result['description'] = '<p>' . esc_html__('Er is geen AI-provider ingesteld, of de provider is nu niet bereikbaar. Tot die tijd houden berichten de lange slug van de titel.', 'zw-slug-sniper') . '</p>';
+            $result['actions']     = '<p><a href="' . esc_url(admin_url('options-connectors.php')) . '">' . esc_html__('Naar Connectors', 'zw-slug-sniper') . '</a></p>';
         }
 
         return $result;

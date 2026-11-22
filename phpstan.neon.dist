@@ -5,6 +5,6 @@ parameters:
     level: 6
     paths:
         - src
-        - zw-slug-inkorter.php
+        - zw-slug-sniper.php
         - uninstall.php
     tmpDir: .phpstan-cache

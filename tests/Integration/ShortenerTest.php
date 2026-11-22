@@ -2,15 +2,15 @@
 /**
  * When a post gets a short slug, and which one.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter\Tests\Integration;
+namespace ZWSlugSniper\Tests\Integration;
 
-use ZWSlugInkorter\Health;
-use ZWSlugInkorter\Shortener;
+use ZWSlugSniper\Health;
+use ZWSlugSniper\Shortener;
 
 final class ShortenerTest extends \WP_UnitTestCase
 {

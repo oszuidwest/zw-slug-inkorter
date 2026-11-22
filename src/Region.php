@@ -2,12 +2,12 @@
 /**
  * Finds the region a post is about.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter;
+namespace ZWSlugSniper;
 
 /**
  * Terms are saved after wp_insert_post_data, so the regions picked in this save come from the request itself.

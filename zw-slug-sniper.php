@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name:       ZuidWest Slug Inkorter
- * Plugin URI:        https://github.com/oszuidwest/zw-slug-inkorter
+ * Plugin Name:       ZuidWest Slug Sniper
+ * Plugin URI:        https://github.com/oszuidwest/zw-slug-sniper
  * Description:       Gives new posts a short, readable slug made by OpenAI when they are first published or scheduled.
  * Version:           0.1.0
  * Requires at least: 7.1
@@ -9,9 +9,9 @@
  * Author:            Streekomroep ZuidWest
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       zw-slug-inkorter
+ * Text Domain:       zw-slug-sniper
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
@@ -19,7 +19,7 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 spl_autoload_register(static function (string $class): void {
-    $prefix = 'ZWSlugInkorter\\';
+    $prefix = 'ZWSlugSniper\\';
     if (!str_starts_with($class, $prefix)) {
         return;
     }
@@ -29,6 +29,6 @@ spl_autoload_register(static function (string $class): void {
     }
 });
 
-add_filter('wp_insert_post_data', [\ZWSlugInkorter\Shortener::class, 'filter'], 99, 2);
-add_action('init', [\ZWSlugInkorter\Region::class, 'listenToRest'], 99);
-add_filter('site_status_tests', [\ZWSlugInkorter\Health::class, 'register']);
+add_filter('wp_insert_post_data', [\ZWSlugSniper\Shortener::class, 'filter'], 99, 2);
+add_action('init', [\ZWSlugSniper\Region::class, 'listenToRest'], 99);
+add_filter('site_status_tests', [\ZWSlugSniper\Health::class, 'register']);

@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<ruleset name="ZuidWest Slug Inkorter">
-    <description>WordPress coding standards for the ZuidWest Slug Inkorter plugin.</description>
+<ruleset name="ZuidWest Slug Sniper">
+    <description>WordPress coding standards for the ZuidWest Slug Sniper plugin.</description>
 
     <file>src</file>
-    <file>zw-slug-inkorter.php</file>
+    <file>zw-slug-sniper.php</file>
     <file>uninstall.php</file>
     <file>tests</file>
 
@@ -46,7 +46,7 @@
         <exclude-pattern>tests/*</exclude-pattern>
         <properties>
             <property name="text_domain" type="array">
-                <element value="zw-slug-inkorter"/>
+                <element value="zw-slug-sniper"/>
             </property>
         </properties>
     </rule>
@@ -55,9 +55,9 @@
         <exclude-pattern>tests/*</exclude-pattern>
         <properties>
             <property name="prefixes" type="array">
-                <element value="zw_slug_inkorter"/>
-                <element value="ZW_SLUG_INKORTER"/>
-                <element value="ZWSlugInkorter"/>
+                <element value="zw_slug_sniper"/>
+                <element value="ZW_SLUG_SNIPER"/>
+                <element value="ZWSlugSniper"/>
             </property>
         </properties>
     </rule>

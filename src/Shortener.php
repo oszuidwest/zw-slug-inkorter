@@ -2,12 +2,12 @@
 /**
  * Swaps the title slug for a short one when a post first goes live.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter;
+namespace ZWSlugSniper;
 
 /**
  * Hooks into wp_insert_post_data, so the short slug is in place before anything else sees the URL.

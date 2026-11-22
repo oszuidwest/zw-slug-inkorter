@@ -2,12 +2,12 @@
 /**
  * Asks the WordPress AI Client for a short slug.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter;
+namespace ZWSlugSniper;
 
 use WordPress\AiClient\Providers\Http\DTO\RequestOptions;
 
@@ -74,7 +74,7 @@ Antwoord alleen met de slug.';
 
         $slug = self::clean($answer);
         if ($slug === '') {
-            return new \WP_Error('zw_slug_inkorter_answer', 'Het AI-model gaf geen bruikbare slug.');
+            return new \WP_Error('zw_slug_sniper_answer', 'Het AI-model gaf geen bruikbare slug.');
         }
 
         return $slug;

@@ -1,4 +1,4 @@
-# ZuidWest Slug Inkorter
+# ZuidWest Slug Sniper
 
 WordPress plugin that gives new posts a short, readable slug made by AI, such as `brand-verwoest-garage-putte` instead of the full title.
 
@@ -29,7 +29,7 @@ The answer gets 8 seconds. Without a persistent object cache WordPress first fet
 
 ## Installation
 
-1. Download the latest release from [GitHub Releases](https://github.com/oszuidwest/zw-slug-inkorter/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/oszuidwest/zw-slug-sniper/releases)
 2. Upload the ZIP file via WordPress Admin → Plugins → Add New → Upload Plugin
 3. Activate the plugin
 

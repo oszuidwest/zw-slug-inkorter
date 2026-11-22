@@ -2,14 +2,14 @@
 /**
  * The Site Health check.
  *
- * @package ZW_Slug_Inkorter
+ * @package ZW_Slug_Sniper
  */
 
 declare(strict_types=1);
 
-namespace ZWSlugInkorter\Tests\Integration;
+namespace ZWSlugSniper\Tests\Integration;
 
-use ZWSlugInkorter\Health;
+use ZWSlugSniper\Health;
 
 final class HealthTest extends \WP_UnitTestCase
 {
@@ -25,7 +25,7 @@ final class HealthTest extends \WP_UnitTestCase
     {
         $tests = apply_filters('site_status_tests', ['direct' => [], 'async' => []]);
 
-        $this->assertSame([Health::class, 'test'], $tests['direct']['zw_slug_inkorter']['test']);
+        $this->assertSame([Health::class, 'test'], $tests['direct']['zw_slug_sniper']['test']);
     }
 
     public function test_good_without_failures(): void
