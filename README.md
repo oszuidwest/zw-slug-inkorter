@@ -45,6 +45,7 @@ npm ci
 npm run env:start  # WordPress 7.1 with the OpenAI provider in wp-env
 npm run env:composer
 npm run test:php   # Integration tests
+scripts/pot.sh     # Regenerate languages/zw-slug-sniper.pot (needs WP-CLI)
 ```
 
 ## License
