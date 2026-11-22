@@ -61,12 +61,17 @@ Antwoord alleen met de slug.';
             : "PLAATS: zet de plaats uit de titel of samenvatting in de slug, bij voorkeur aan het eind.\n";
         $retry = $rejected === [] ? '' : "\nDeze slugs kun je niet gebruiken:\n- " . implode("\n- ", $rejected) . "\n";
 
-        $answer = wp_ai_client_prompt(sprintf(self::PROMPT, $title, $summary, $place, self::MAX_LENGTH, $retry))
-            ->using_system_instruction(self::SYSTEM)
-            ->using_max_tokens(300)
-            ->using_model_preference(self::MODEL)
-            ->using_request_options(RequestOptions::fromArray([RequestOptions::KEY_TIMEOUT => self::TIMEOUT]))
-            ->generate_text();
+        // Anything thrown here would break the save. The builder only turns its own exceptions into a WP_Error, not PHP errors.
+        try {
+            $answer = wp_ai_client_prompt(sprintf(self::PROMPT, $title, $summary, $place, self::MAX_LENGTH, $retry))
+                ->using_system_instruction(self::SYSTEM)
+                ->using_max_tokens(300)
+                ->using_model_preference(self::MODEL)
+                ->using_request_options(RequestOptions::fromArray([RequestOptions::KEY_TIMEOUT => self::TIMEOUT]))
+                ->generate_text();
+        } catch (\Throwable $e) {
+            return new \WP_Error('zw_slug_sniper_client', $e->getMessage());
+        }
 
         if (is_wp_error($answer)) {
             return $answer;
