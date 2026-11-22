@@ -31,27 +31,17 @@ final class HealthTest extends \WP_UnitTestCase
     public function test_good_without_failures(): void
     {
         $this->assertSame('good', Health::test()['status']);
+        $this->assertSame([], $this->openAiUrls);
     }
 
-    public function test_critical_without_a_text_model(): void
+    public function test_recorded_failure_is_critical_and_links_to_connectors(): void
     {
-        remove_filter('pre_http_request', [$this, 'interceptOpenAi'], 10);
-        add_filter('pre_http_request', fn ($pre, array $args, string $url) => $url === 'https://api.openai.com/v1/models' ? self::json(200, ['data' => []]) : $pre, 10, 3);
-        wp_cache_flush();
+        update_option(Health::OPTION, ['time' => time(), 'message' => 'Unauthorized (401)'], false);
         $test = Health::test();
 
         $this->assertSame('critical', $test['status']);
+        $this->assertStringContainsString('Unauthorized (401)', $test['description']);
         $this->assertStringContainsString('options-connectors.php', $test['actions']);
-    }
-
-    public function test_recorded_failure_comes_before_the_model_check(): void
-    {
-        update_option(Health::OPTION, ['time' => time(), 'message' => 'Unauthorized (401)'], false);
-        remove_filter('pre_http_request', [$this, 'interceptOpenAi'], 10);
-        add_filter('pre_http_request', fn ($pre, array $args, string $url) => $url === 'https://api.openai.com/v1/models' ? self::json(401, ['error' => ['message' => 'bad key']]) : $pre, 10, 3);
-        wp_cache_flush();
-
-        $this->assertStringContainsString('Unauthorized (401)', Health::test()['description']);
     }
 
     public function test_failure_is_escaped_and_dated(): void
