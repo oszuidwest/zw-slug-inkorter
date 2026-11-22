@@ -1,0 +1,23 @@
+{
+    "name": "zw-slug-inkorter",
+    "private": true,
+    "description": "Development tooling for the ZuidWest Slug Inkorter plugin (wp-env).",
+    "license": "GPL-2.0-or-later",
+    "scripts": {
+        "env:start": "wp-env start",
+        "env:stop": "wp-env stop",
+        "env:destroy": "wp-env destroy",
+        "env:composer": "wp-env run cli --env-cwd=wp-content/plugins/zw-slug-inkorter composer install --no-interaction --prefer-dist",
+        "test:php": "wp-env run cli --env-cwd=wp-content/plugins/zw-slug-inkorter vendor/bin/phpunit"
+    },
+    "devDependencies": {
+        "@wordpress/env": "^12.1.0"
+    },
+    "overrides": {
+        "isomorphic-git": "^1.38.6",
+        "qs": "^6.16.1",
+        "rimraf": {
+            "glob": "^14.0.2"
+        }
+    }
+}
