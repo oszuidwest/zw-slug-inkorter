@@ -38,7 +38,7 @@ final class Region
             }
         );
 
-        $param = $taxonomy->rest_base ?: $taxonomy->name;
+        $param = is_string($taxonomy->rest_base) && !empty($taxonomy->rest_base) ? $taxonomy->rest_base : $taxonomy->name;
         foreach ($taxonomy->object_type as $type) {
             add_filter(
                 "rest_pre_insert_{$type}",
