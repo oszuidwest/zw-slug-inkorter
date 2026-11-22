@@ -9,25 +9,24 @@ declare(strict_types=1);
 
 namespace ZWSlugSniper\Tests\Integration;
 
-trait FakesOpenAi
+abstract class OpenAiTestCase extends \WP_UnitTestCase
 {
     /** @var list<array{args: array<string, mixed>, body: array<string, mixed>}> Requests to the Responses API. */
-    private array $requests = [];
+    protected array $requests = [];
 
     /** @var list<string> Every OpenAI URL that was called, the model list included. */
-    private array $openAiUrls = [];
+    protected array $openAiUrls = [];
 
-    /** @var array<string, mixed>|\WP_Error Answer from the Responses API once the queue is empty. */
-    private array|\WP_Error $reply = [];
+    /** @var list<string|array<string, mixed>|\WP_Error|\Throwable> Replies of the Responses API in order, the last one repeats. A string is the answer text. */
+    protected array $replies = [];
 
-    /** @var list<array<string, mixed>> Answers given first, in order. */
-    private array $queue = [];
+    /** @var list<string> Models the provider lists. */
+    protected array $models = ['gpt-5.4-mini', 'gpt-4.1'];
 
-    private function fakeOpenAi(string $answer): void
+    public function set_up(): void
     {
-        $this->requests   = [];
-        $this->openAiUrls = [];
-        $this->answer($answer);
+        parent::set_up();
+        $this->answers('brand-verwoest-garage-putte');
         add_filter('pre_http_request', [$this, 'interceptOpenAi'], 10, 3);
     }
 
@@ -42,28 +41,33 @@ trait FakesOpenAi
             $this->openAiUrls[] = $url;
         }
         if ($url === 'https://api.openai.com/v1/models') {
-            return self::json(200, ['data' => [['id' => 'gpt-5.4-mini'], ['id' => 'gpt-4.1']]]);
+            return self::json(200, ['data' => array_map(static fn (string $id): array => ['id' => $id], $this->models)]);
         }
         if ($url !== 'https://api.openai.com/v1/responses') {
             return $pre;
         }
         $this->requests[] = ['args' => $args, 'body' => (array) json_decode((string) $args['body'], true)];
-        return array_shift($this->queue) ?? $this->reply;
+        $reply = count($this->replies) > 1 ? array_shift($this->replies) : $this->replies[0];
+        if ($reply instanceof \Throwable) {
+            throw $reply;
+        }
+        return is_string($reply) ? self::text($reply) : $reply;
     }
 
-    private function answer(string $text, int $code = 200): void
+    /**
+     * @param string|array<string, mixed>|\WP_Error|\Throwable ...$replies
+     */
+    protected function answers(string|array|\WP_Error|\Throwable ...$replies): void
     {
-        $this->reply = $code === 200
-            ? self::json(200, ['output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => $text]]]]])
-            : self::json($code, ['error' => ['message' => $text, 'type' => 'invalid_request_error']]);
+        $this->replies = array_values($replies);
     }
 
-    private function answers(string ...$texts): void
+    protected static function text(string $text): array
     {
-        $this->queue = array_map(static fn (string $text): array => self::json(200, ['output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => $text]]]]]), $texts);
+        return self::json(200, ['output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => $text]]]]]);
     }
 
-    private function prompt(int $index = 0): string
+    protected function prompt(int $index = 0): string
     {
         return (string) $this->requests[$index]['body']['input'][0]['content'][0]['text'];
     }
@@ -72,7 +76,7 @@ trait FakesOpenAi
      * @param array<string, mixed> $body
      * @return array<string, mixed>
      */
-    private static function json(int $code, array $body): array
+    protected static function json(int $code, array $body): array
     {
         return ['response' => ['code' => $code, 'message' => ''], 'headers' => ['content-type' => 'application/json'], 'body' => (string) wp_json_encode($body), 'cookies' => []];
     }

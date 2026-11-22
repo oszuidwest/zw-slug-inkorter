@@ -8,7 +8,8 @@
         "env:stop": "wp-env stop",
         "env:destroy": "wp-env destroy",
         "env:composer": "wp-env run cli --env-cwd=wp-content/plugins/zw-slug-sniper composer install --no-interaction --prefer-dist",
-        "test:php": "wp-env run cli --env-cwd=wp-content/plugins/zw-slug-sniper vendor/bin/phpunit"
+        "test:php": "wp-env run cli --env-cwd=wp-content/plugins/zw-slug-sniper vendor/bin/phpunit",
+        "pot": "wp-env run cli --env-cwd=wp-content/plugins/zw-slug-sniper wp i18n make-pot . languages/zw-slug-sniper.pot --include=src,zw-slug-sniper.php,uninstall.php"
     },
     "devDependencies": {
         "@wordpress/env": "^12.1.0"

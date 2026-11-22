@@ -63,7 +63,8 @@ Antwoord alleen met de slug.';
 
         // Anything thrown here would break the save. The builder only turns its own exceptions into a WP_Error, not PHP errors.
         try {
-            $answer = wp_ai_client_prompt(sprintf(self::PROMPT, $title, $summary, $place, self::MAX_LENGTH, $retry))
+            // Titles, excerpts and term names are saved with HTML entities such as &amp;; the model gets plain text.
+            $answer = wp_ai_client_prompt(html_entity_decode(sprintf(self::PROMPT, $title, $summary, $place, self::MAX_LENGTH, $retry), ENT_QUOTES | ENT_HTML5, 'UTF-8'))
                 ->using_system_instruction(self::SYSTEM)
                 ->using_max_tokens(300)
                 ->using_model_preference(self::MODEL)
@@ -78,11 +79,7 @@ Antwoord alleen met de slug.';
         }
 
         $slug = self::clean($answer);
-        if ($slug === '') {
-            return new \WP_Error('zw_slug_sniper_answer', __('Het AI-model gaf geen bruikbare slug.', 'zw-slug-sniper'));
-        }
-
-        return $slug;
+        return $slug !== '' ? $slug : new \WP_Error('zw_slug_sniper_answer', __('Het AI-model gaf geen bruikbare slug.', 'zw-slug-sniper'));
     }
 
     /**

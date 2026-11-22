@@ -27,18 +27,15 @@ final class Shortener
      */
     public static function filter(array $data, array $postarr): array
     {
-        $postId    = (int) ($postarr['ID'] ?? 0);
-        $restTerms = Region::takeRestTerms($postId);
+        $postId = (int) ($postarr['ID'] ?? 0);
         if (!self::applies($data, $postarr, $postId)) {
             return $data;
         }
 
-        $content  = (string) wp_unslash((string) $data['post_content']);
+        $title    = (string) wp_unslash((string) $data['post_title']);
         $excerpt  = (string) wp_unslash((string) $data['post_excerpt']);
-        $title    = self::plain((string) wp_unslash((string) $data['post_title']));
-        $summary  = self::plain(wp_trim_words($excerpt !== '' ? $excerpt : strip_shortcodes($content), 50, ''));
-        $region   = Region::forPost($postId, $postarr, $restTerms);
-        $region   = $region !== null ? self::plain($region) : null;
+        $summary  = wp_trim_words($excerpt !== '' ? $excerpt : strip_shortcodes((string) wp_unslash((string) $data['post_content'])), 50, '');
+        $region   = Region::forPost($postId, $postarr);
         $rejected = [];
 
         for ($attempt = 1; $attempt <= self::ATTEMPTS; $attempt++) {
@@ -48,51 +45,23 @@ final class Shortener
                 return $data;
             }
 
-            $problem = self::problem($slug, $region, $data, $postId, $attempt === self::ATTEMPTS);
+            // On the last attempt a slug without the place is accepted.
+            $problem = match (true) {
+                strlen($slug) > Generator::MAX_LENGTH => sprintf('te lang, meer dan %d tekens', Generator::MAX_LENGTH),
+                wp_unique_post_slug($slug, $postId, (string) $data['post_status'], (string) $data['post_type'], (int) $data['post_parent']) !== $slug => 'bestaat al',
+                $attempt < self::ATTEMPTS && $region !== null && !str_contains("-{$slug}-", '-' . sanitize_title($region) . '-') => 'plaats ontbreekt',
+                default => null,
+            };
             if ($problem === null) {
-                Health::recordSuccess();
                 $data['post_name'] = $slug;
-                return $data;
+                break;
             }
             $rejected[] = "{$slug} ({$problem})";
         }
 
-        // The model works, but gave no usable slug: keep the title slug WordPress made rather than add -2 to the short one.
+        // The model works. Without a usable slug the post keeps the title slug WordPress made, rather than -2 on the short one.
         Health::recordSuccess();
         return $data;
-    }
-
-    /**
-     * Titles, excerpts and term names are saved with HTML entities such as &amp;; the model gets plain text.
-     *
-     * @param string $text Text as saved.
-     */
-    private static function plain(string $text): string
-    {
-        return html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    }
-
-    /**
-     * Why the slug can't be used, or null when it can.
-     *
-     * @param string               $slug   Slug from the model.
-     * @param string|null          $region Region that should be in it.
-     * @param array<string, mixed> $data   Post data about to be saved.
-     * @param int                  $postId Post ID, 0 for a new post.
-     * @param bool                 $last   Whether this is the last attempt; a missing place is accepted then.
-     */
-    private static function problem(string $slug, ?string $region, array $data, int $postId, bool $last): ?string
-    {
-        if (strlen($slug) > Generator::MAX_LENGTH) {
-            return sprintf('te lang, meer dan %d tekens', Generator::MAX_LENGTH);
-        }
-        if (wp_unique_post_slug($slug, $postId, (string) $data['post_status'], (string) $data['post_type'], (int) $data['post_parent']) !== $slug) {
-            return 'bestaat al';
-        }
-        if (!$last && $region !== null && !str_contains("-{$slug}-", '-' . sanitize_title($region) . '-')) {
-            return 'plaats ontbreekt';
-        }
-        return null;
     }
 
     /**
@@ -102,13 +71,12 @@ final class Shortener
      */
     private static function applies(array $data, array $postarr, int $postId): bool
     {
-        if (!in_array($data['post_status'], self::LIVE, true) || !is_post_type_viewable((string) $data['post_type']) || !wp_supports_ai()) {
-            return false;
-        }
-
         // Only a post that never had a slug. Published and scheduled posts always have one, and so has a draft
         // whose slug the editor typed or that was public before.
-        $existing = $postId > 0 ? get_post($postId) : null;
-        return (string) ($postarr['post_name'] ?? '') === '' && (!$existing || $existing->post_name === '');
+        return in_array($data['post_status'], self::LIVE, true)
+            && (string) ($postarr['post_name'] ?? '') === ''
+            && ($postId === 0 || get_post($postId)?->post_name === '')
+            && is_post_type_viewable((string) $data['post_type'])
+            && wp_supports_ai();
     }
 }

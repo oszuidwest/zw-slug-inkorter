@@ -1,17 +1,7 @@
-# Development and repository metadata.
-/.git
-/.github/
-/.gitignore
+# Development files the shared release workflow does not exclude itself.
 /.nvmrc
 /.wp-env.json
-/composer.json
-/composer.lock
-/node_modules/
-/package.json
-/package-lock.json
-/phpcs.xml.dist
 /phpstan.neon.dist
 /phpunit.xml.dist
-/scripts/
 /tests/
 /vendor/

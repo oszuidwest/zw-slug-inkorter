@@ -9,15 +9,10 @@
 
 declare(strict_types=1);
 
-$zw_slug_sniper_env = static function (string $name, string $default): string {
-    $value = getenv($name);
-    return is_string($value) && $value !== '' ? $value : $default;
-};
-
-define('DB_NAME', $zw_slug_sniper_env('WORDPRESS_DB_NAME', 'wordpress'));
-define('DB_USER', $zw_slug_sniper_env('WORDPRESS_DB_USER', 'root'));
-define('DB_PASSWORD', $zw_slug_sniper_env('WORDPRESS_DB_PASSWORD', 'password'));
-define('DB_HOST', $zw_slug_sniper_env('WORDPRESS_DB_HOST', 'mysql'));
+define('DB_NAME', getenv('WORDPRESS_DB_NAME') ?: 'wordpress');
+define('DB_USER', getenv('WORDPRESS_DB_USER') ?: 'root');
+define('DB_PASSWORD', getenv('WORDPRESS_DB_PASSWORD') ?: 'password');
+define('DB_HOST', getenv('WORDPRESS_DB_HOST') ?: 'mysql');
 define('DB_CHARSET', 'utf8mb4');
 define('DB_COLLATE', '');
 
@@ -31,5 +26,5 @@ define('WP_DEBUG', true);
 define('WPLANG', '');
 
 if (!defined('ABSPATH')) {
-    define('ABSPATH', $zw_slug_sniper_env('ZW_SLUG_SNIPER_TESTS_ABSPATH', '/var/www/html/'));
+    define('ABSPATH', getenv('ZW_SLUG_SNIPER_TESTS_ABSPATH') ?: '/var/www/html/');
 }

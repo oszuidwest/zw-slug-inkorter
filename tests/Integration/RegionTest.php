@@ -9,10 +9,8 @@ declare(strict_types=1);
 
 namespace ZWSlugSniper\Tests\Integration;
 
-final class RegionTest extends \WP_UnitTestCase
+final class RegionTest extends OpenAiTestCase
 {
-    use FakesOpenAi;
-
     private int $roosendaal;
     private int $putte;
 
@@ -21,13 +19,6 @@ final class RegionTest extends \WP_UnitTestCase
         parent::set_up();
         $this->roosendaal = self::factory()->term->create(['taxonomy' => 'regio', 'name' => 'Roosendaal']);
         $this->putte      = self::factory()->term->create(['taxonomy' => 'regio', 'name' => 'Putte']);
-        $this->fakeOpenAi('garagebrand-putte-roosendaal');
-    }
-
-    public function tear_down(): void
-    {
-        unset($_POST['post_ID'], $_POST['yoast_wpseo_primary_regio_term']);
-        parent::tear_down();
     }
 
     private function draft(array $regions = []): int
@@ -82,7 +73,6 @@ final class RegionTest extends \WP_UnitTestCase
         $request = new \WP_REST_Request('POST', '/wp/v2/posts');
         $request->set_body_params(['title' => 'Brand in een garage', 'status' => 'publish', 'regio' => [$this->putte]]);
         rest_do_request($request);
-        remove_action('save_post_post', $hook, 10);
 
         $this->assertCount(2, $this->requests);
         $this->assertStringContainsString('PLAATS: Putte.', $this->prompt(0));
@@ -103,7 +93,6 @@ final class RegionTest extends \WP_UnitTestCase
         };
         add_filter('wp_insert_post_data', $nested, 10, 2);
         $this->restPublish($id, [$this->roosendaal]);
-        remove_filter('wp_insert_post_data', $nested, 10);
 
         $this->assertCount(2, $this->requests);
         $this->assertStringContainsString('PLAATS: zet de plaats uit de titel', $this->prompt(0));
@@ -130,13 +119,34 @@ final class RegionTest extends \WP_UnitTestCase
         $this->assertStringContainsString('PLAATS: Roosendaal.', $this->prompt(0));
     }
 
-    public function test_yoast_primary_region_wins_when_it_is_still_picked(): void
+    /**
+     * @return array<string, array{string, array<string, string>, array<string, string>, string}>
+     */
+    public static function yoastPicks(): array
+    {
+        // Saved Yoast primary, extra post input from the classic editor form, other $_POST data, place in the prompt.
+        $field = 'yoast_wpseo_primary_regio_term';
+        return [
+            'saved primary wins'              => ['roosendaal', [], [], 'Roosendaal'],
+            'primary picked in the form wins' => ['putte', [$field => 'roosendaal'], [], 'Roosendaal'],
+            'primary cleared in the form'     => ['roosendaal', [$field => ''], [], 'Putte'],
+            'form of another post is ignored' => ['roosendaal', [$field => 'putte', 'post_ID' => 'other'], [], 'Roosendaal'],
+            'other request data is ignored'   => ['roosendaal', [], [$field => 'putte'], 'Roosendaal'],
+        ];
+    }
+
+    /**
+     * @dataProvider yoastPicks
+     */
+    public function test_yoast_primary_region(string $saved, array $form, array $post, string $place): void
     {
         $id = $this->draft([$this->roosendaal, $this->putte]);
-        update_post_meta($id, '_yoast_wpseo_primary_regio', (string) $this->roosendaal);
-        wp_update_post(['ID' => $id, 'post_status' => 'publish']);
+        update_post_meta($id, '_yoast_wpseo_primary_regio', (string) $this->$saved);
+        $ids   = fn (array $picks): array => array_map(fn (string $name): string => match ($name) { '' => '', 'other' => (string) ($id + 1), default => (string) $this->$name }, $picks);
+        $_POST = $ids($post) + ['post_ID' => (string) $id];
+        wp_update_post(['ID' => $id, 'post_status' => 'publish'] + $ids($form) + ['post_ID' => (string) $id]);
 
-        $this->assertStringContainsString('PLAATS: Roosendaal.', $this->prompt(0));
+        $this->assertStringContainsString("PLAATS: {$place}.", $this->prompt(0));
     }
 
     public function test_yoast_primary_region_is_ignored_when_it_is_no_longer_picked(): void
@@ -144,39 +154,6 @@ final class RegionTest extends \WP_UnitTestCase
         $id = $this->draft([$this->putte]);
         update_post_meta($id, '_yoast_wpseo_primary_regio', (string) $this->putte);
         $this->restPublish($id, [$this->roosendaal]);
-
-        $this->assertStringContainsString('PLAATS: Roosendaal.', $this->prompt(0));
-    }
-
-    public function test_yoast_primary_region_picked_in_the_classic_editor_save_wins(): void
-    {
-        $id = $this->draft([$this->roosendaal, $this->putte]);
-        update_post_meta($id, '_yoast_wpseo_primary_regio', (string) $this->putte);
-        $_POST['post_ID']                        = (string) $id;
-        $_POST['yoast_wpseo_primary_regio_term'] = (string) $this->roosendaal;
-        wp_update_post(['ID' => $id, 'post_status' => 'publish']);
-
-        $this->assertStringContainsString('PLAATS: Roosendaal.', $this->prompt(0));
-    }
-
-    public function test_yoast_primary_region_cleared_in_the_classic_editor_save_uses_the_first_region(): void
-    {
-        $id = $this->draft([$this->roosendaal, $this->putte]);
-        update_post_meta($id, '_yoast_wpseo_primary_regio', (string) $this->roosendaal);
-        $_POST['post_ID']                        = (string) $id;
-        $_POST['yoast_wpseo_primary_regio_term'] = '';
-        wp_update_post(['ID' => $id, 'post_status' => 'publish']);
-
-        $this->assertStringContainsString('PLAATS: Putte.', $this->prompt(0));
-    }
-
-    public function test_classic_editor_form_of_another_post_keeps_the_saved_yoast_primary_region(): void
-    {
-        $id = $this->draft([$this->roosendaal, $this->putte]);
-        update_post_meta($id, '_yoast_wpseo_primary_regio', (string) $this->roosendaal);
-        $_POST['post_ID']                        = (string) ($id + 1);
-        $_POST['yoast_wpseo_primary_regio_term'] = (string) $this->putte;
-        wp_update_post(['ID' => $id, 'post_status' => 'publish']);
 
         $this->assertStringContainsString('PLAATS: Roosendaal.', $this->prompt(0));
     }
@@ -204,17 +181,17 @@ final class RegionTest extends \WP_UnitTestCase
 
     public function test_entities_in_title_excerpt_and_region_reach_the_model_as_plain_text(): void
     {
-        $region = self::factory()->term->create(['taxonomy' => 'regio', 'name' => 'Halderberge & Rucphen']);
-        $this->assertSame('Halderberge &amp; Rucphen', get_term($region)->name);
+        $region = self::factory()->term->create(['taxonomy' => 'regio', 'name' => 'Halderberge & Caf&eacute;']);
+        $this->assertSame('Halderberge &amp; Caf&eacute;', get_term($region)->name);
         $id = self::factory()->post->create(['post_title' => 'Kaas &amp; wijn in Putte', 'post_excerpt' => 'Het &#039;proeflokaal&#039; opent.', 'post_status' => 'draft']);
         wp_set_post_terms($id, [$region], 'regio');
-        $this->answers('kaas-wijn-halderberge-rucphen');
+        $this->answers('kaas-wijn-halderberge-cafe');
         $this->restPublish($id, null);
 
         $this->assertStringContainsString("TITEL: Kaas & wijn in Putte\n", $this->prompt(0));
         $this->assertStringContainsString("SAMENVATTING: Het 'proeflokaal' opent.\n", $this->prompt(0));
-        $this->assertStringContainsString('PLAATS: Halderberge & Rucphen.', $this->prompt(0));
-        $this->assertSame('kaas-wijn-halderberge-rucphen', get_post_field('post_name', $id));
+        $this->assertStringContainsString('PLAATS: Halderberge & Café.', $this->prompt(0));
+        $this->assertSame('kaas-wijn-halderberge-cafe', get_post_field('post_name', $id));
         $this->assertCount(1, $this->requests);
     }
 }

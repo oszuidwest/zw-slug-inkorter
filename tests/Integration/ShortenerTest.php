@@ -12,42 +12,36 @@ namespace ZWSlugSniper\Tests\Integration;
 use ZWSlugSniper\Health;
 use ZWSlugSniper\Shortener;
 
-final class ShortenerTest extends \WP_UnitTestCase
+final class ShortenerTest extends OpenAiTestCase
 {
-    use FakesOpenAi;
-
-    public function set_up(): void
-    {
-        parent::set_up();
-        $this->fakeOpenAi('brand-verwoest-garage-putte');
-    }
-
     private function publish(array $args = []): \WP_Post
     {
-        $id = self::factory()->post->create($args + ['post_title' => 'Brand verwoest garage aan de Kerkstraat in Putte, niemand gewond', 'post_status' => 'publish']);
-        return get_post($id);
+        return self::factory()->post->create_and_get($args + ['post_title' => 'Brand verwoest garage aan de Kerkstraat in Putte, niemand gewond', 'post_status' => 'publish']);
     }
 
-    public function test_title_with_quotes_reaches_openai_unslashed(): void
+    /**
+     * @return array<string, array{array<string, string>, string}>
+     */
+    public static function prompts(): array
     {
-        $this->publish(['post_title' => 'Wethouder: "Dit is een \'flinke\' tegenvaller voor de gemeente Rucphen"']);
-
-        $this->assertStringContainsString('TITEL: Wethouder: "Dit is een \'flinke\' tegenvaller voor de gemeente Rucphen"', $this->prompt());
+        return [
+            'title with quotes, unslashed' => [['post_title' => 'Wethouder: "Dit is een \'flinke\' tegenvaller voor de gemeente Rucphen"'], 'TITEL: Wethouder: "Dit is een \'flinke\' tegenvaller voor de gemeente Rucphen"'],
+            'excerpt without tags'         => [['post_excerpt' => 'Een <em>garage</em> in Putte is uitgebrand.', 'post_content' => '<!-- wp:paragraph --><p>Lange tekst</p><!-- /wp:paragraph -->'], 'SAMENVATTING: Een garage in Putte is uitgebrand.'],
+            'text without blocks, tags or shortcodes' => [['post_excerpt' => '', 'post_content' => '<!-- wp:paragraph --><p>De <strong>brandweer</strong> kwam snel.</p><!-- /wp:paragraph -->[kader]Info[/kader]'], "SAMENVATTING: De brandweer kwam snel.\n"],
+            'no region, place from the title' => [[], 'PLAATS: zet de plaats uit de titel of samenvatting in de slug'],
+        ];
     }
 
-    public function test_excerpt_is_sent_when_there_is_one(): void
-    {
-        $this->publish(['post_excerpt' => 'Een <em>garage</em> in Putte is uitgebrand.', 'post_content' => '<!-- wp:paragraph --><p>Lange tekst</p><!-- /wp:paragraph -->']);
-
-        $this->assertStringContainsString('SAMENVATTING: Een garage in Putte is uitgebrand.', $this->prompt());
-    }
-
-    public function test_without_excerpt_the_text_is_sent_without_blocks_tags_or_shortcodes(): void
+    /**
+     * @dataProvider prompts
+     */
+    public function test_prompt(array $post, string $expected): void
     {
         add_shortcode('kader', static fn (): string => '');
-        $this->publish(['post_excerpt' => '', 'post_content' => '<!-- wp:paragraph --><p>De <strong>brandweer</strong> kwam snel.</p><!-- /wp:paragraph -->[kader]Info[/kader]']);
+        $this->publish($post);
 
-        $this->assertStringContainsString("SAMENVATTING: De brandweer kwam snel.\n", $this->prompt());
+        $this->assertStringContainsString($expected, $this->prompt());
+        $this->assertStringNotContainsString('niet gebruiken', $this->prompt());
     }
 
     public function test_post_gets_the_short_slug_once_and_keeps_it(): void
@@ -108,39 +102,25 @@ final class ShortenerTest extends \WP_UnitTestCase
     public function test_title_slug_fallback_still_clears_an_old_failure(): void
     {
         update_option(Health::OPTION, ['time' => time(), 'message' => 'kapot'], false);
-        $this->answer('brand-verwoest-garage-aan-de-kerkstraat-in-putte-vannacht');
+        $this->answers('brand-verwoest-garage-aan-de-kerkstraat-in-putte-vannacht');
 
         $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $this->publish()->post_name);
         $this->assertCount(2, $this->requests);
         $this->assertFalse(get_option(Health::OPTION));
     }
 
-    public function test_without_a_region_the_place_comes_from_the_title(): void
-    {
-        $this->publish();
-
-        $this->assertStringContainsString('PLAATS: zet de plaats uit de titel of samenvatting in de slug', $this->prompt());
-        $this->assertStringNotContainsString('niet gebruiken', $this->prompt());
-    }
-
-    public function test_post_types_without_a_public_url_are_skipped(): void
+    public function test_pages_get_the_short_slug_and_post_types_without_a_public_url_are_skipped(): void
     {
         register_post_type('zw_intern', ['public' => false]);
+        $this->assertSame('brand-verwoest-garage-putte', $this->publish(['post_type' => 'page'])->post_name);
         $this->publish(['post_type' => 'zw_intern']);
 
-        $this->assertSame([], $this->requests);
-    }
-
-    public function test_page_gets_the_short_slug_too(): void
-    {
-        $post = $this->publish(['post_type' => 'page']);
-
-        $this->assertSame('brand-verwoest-garage-putte', $post->post_name);
+        $this->assertCount(1, $this->requests);
     }
 
     public function test_api_error_keeps_the_title_slug_and_shows_in_site_health(): void
     {
-        $this->answer('The project you are requesting has been archived', 401);
+        $this->answers(self::json(401, ['error' => ['message' => 'The project you are requesting has been archived', 'type' => 'invalid_request_error']]));
         $post = $this->publish();
 
         $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
@@ -148,46 +128,37 @@ final class ShortenerTest extends \WP_UnitTestCase
         $this->assertSame('critical', $test['status']);
         $this->assertStringContainsString('Unauthorized (401) - The project you are requesting has been archived', $test['description']);
 
-        $this->answer('brand-verwoest-garage-putte');
+        $this->answers('brand-verwoest-garage-putte');
         $this->publish();
         $this->assertSame('good', Health::test()['status']);
         $this->assertFalse(get_option(Health::OPTION));
     }
 
-    public function test_timeout_keeps_the_title_slug_and_is_recorded(): void
+    /**
+     * @return array<string, array{string|array<string, mixed>|\WP_Error|\Throwable|null, string}>
+     */
+    public static function failures(): array
     {
-        $this->reply = new \WP_Error('http_request_failed', 'cURL error 28: Operation timed out');
-        $post        = $this->publish();
-
-        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
-        $this->assertStringContainsString('cURL error 28: Operation timed out', get_option(Health::OPTION)['message']);
+        // Reply of the Responses API (null: the provider lists no models), pattern for the recorded failure.
+        return [
+            'timeout'          => [new \WP_Error('http_request_failed', 'cURL error 28: Operation timed out'), '/cURL error 28: Operation timed out/'],
+            'malformed answer' => [self::json(200, ['output' => []]), '/./'],
+            'PHP error'        => [new \Error('kapot'), '/^kapot$/'],
+            'no usable slug'   => ['  "---"  ', '/^Het AI-model gaf geen bruikbare slug\.$/'],
+            'no text model'    => [null, '/No models found/'],
+        ];
     }
 
-    public function test_malformed_answer_keeps_the_title_slug(): void
+    /**
+     * @dataProvider failures
+     */
+    public function test_failure_keeps_the_title_slug_and_is_recorded(string|array|\WP_Error|\Throwable|null $reply, string $pattern): void
     {
-        $this->reply = self::json(200, ['output' => []]);
-        $post        = $this->publish();
-
-        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
-        $this->assertIsArray(get_option(Health::OPTION));
-    }
-
-    public function test_php_error_in_the_ai_client_keeps_the_title_slug(): void
-    {
-        add_filter('pre_http_request', static fn ($pre, array $args, string $url) => $url === 'https://api.openai.com/v1/responses' ? throw new \Error('kapot') : $pre, 9, 3);
+        $reply === null ? $this->models = [] : $this->answers($reply);
         $post = $this->publish();
 
         $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
-        $this->assertSame('kapot', get_option(Health::OPTION)['message']);
-    }
-
-    public function test_answer_without_usable_slug_keeps_the_title_slug(): void
-    {
-        $this->answer('  "---"  ');
-        $post        = $this->publish();
-
-        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
-        $this->assertSame('Het AI-model gaf geen bruikbare slug.', get_option(Health::OPTION)['message']);
+        $this->assertMatchesRegularExpression($pattern, get_option(Health::OPTION)['message']);
     }
 
     public function test_request_uses_the_preferred_model_and_a_short_timeout(): void
@@ -203,24 +174,10 @@ final class ShortenerTest extends \WP_UnitTestCase
         $this->assertStringContainsString('nooit meer dan 50', $this->prompt());
     }
 
-    public function test_without_a_text_model_the_title_slug_stays_and_is_reported(): void
-    {
-        $this->reply = self::json(500, ['error' => ['message' => 'not used']]);
-        remove_filter('pre_http_request', [$this, 'interceptOpenAi'], 10);
-        add_filter('pre_http_request', fn ($pre, array $args, string $url) => $url === 'https://api.openai.com/v1/models' ? self::json(200, ['data' => []]) : $pre, 10, 3);
-        wp_cache_flush();
-        $post = $this->publish();
-
-        $this->assertSame('brand-verwoest-garage-aan-de-kerkstraat-in-putte-niemand-gewond', $post->post_name);
-        $this->assertStringContainsString('No models found', get_option(Health::OPTION)['message']);
-    }
-
     public function test_falls_back_to_another_text_model_without_the_preferred_one(): void
     {
-        remove_filter('pre_http_request', [$this, 'interceptOpenAi'], 10);
-        add_filter('pre_http_request', fn ($pre, array $args, string $url) => $url === 'https://api.openai.com/v1/models' ? self::json(200, ['data' => [['id' => 'gpt-4.1']]]) : $this->interceptOpenAi($pre, $args, $url), 10, 3);
-        wp_cache_flush();
-        $post = $this->publish();
+        $this->models = ['gpt-4.1'];
+        $post         = $this->publish();
 
         $this->assertSame('brand-verwoest-garage-putte', $post->post_name);
         $this->assertSame('gpt-4.1', $this->requests[0]['body']['model']);
