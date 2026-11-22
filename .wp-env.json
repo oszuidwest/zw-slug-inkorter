@@ -1,0 +1,10 @@
+{
+    "core": "WordPress/WordPress#7.1",
+    "phpVersion": "8.4",
+    "port": 8891,
+    "testsEnvironment": false,
+    "plugins": [".", "https://downloads.wordpress.org/plugin/ai-provider-for-openai.zip"],
+    "config": {
+        "WP_DEBUG": true
+    }
+}
