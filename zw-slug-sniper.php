@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       ZuidWest Slug Sniper
  * Plugin URI:        https://github.com/oszuidwest/zw-slug-sniper
- * Description:       Gives new posts a short, readable slug made by OpenAI when they are first published or scheduled.
+ * Description:       Gives new posts a short, readable slug made by AI when they are first published or scheduled.
  * Version:           0.0.1
  * Requires at least: 7.1
  * Requires PHP:      8.4

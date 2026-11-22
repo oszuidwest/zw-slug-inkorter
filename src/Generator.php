@@ -74,7 +74,7 @@ Antwoord alleen met de slug.';
 
         $slug = self::clean($answer);
         if ($slug === '') {
-            return new \WP_Error('zw_slug_sniper_answer', 'Het AI-model gaf geen bruikbare slug.');
+            return new \WP_Error('zw_slug_sniper_answer', __('Het AI-model gaf geen bruikbare slug.', 'zw-slug-sniper'));
         }
 
         return $slug;

@@ -35,9 +35,10 @@ final class Shortener
 
         $content  = (string) wp_unslash((string) $data['post_content']);
         $excerpt  = (string) wp_unslash((string) $data['post_excerpt']);
-        $title    = (string) wp_unslash((string) $data['post_title']);
-        $summary  = $excerpt !== '' ? $excerpt : wp_trim_words(wp_strip_all_tags(strip_shortcodes($content)), 50);
+        $title    = self::plain((string) wp_unslash((string) $data['post_title']));
+        $summary  = self::plain($excerpt !== '' ? $excerpt : wp_trim_words(strip_shortcodes($content), 50, ''));
         $region   = Region::forPost($postId, $postarr, $restTerms);
+        $region   = $region !== null ? self::plain($region) : null;
         $rejected = [];
 
         for ($attempt = 1; $attempt <= self::ATTEMPTS; $attempt++) {
@@ -59,6 +60,16 @@ final class Shortener
         // The model works, but gave no usable slug: keep the title slug WordPress made rather than add -2 to the short one.
         Health::recordSuccess();
         return $data;
+    }
+
+    /**
+     * Titles, excerpts and term names are saved with HTML entities such as &amp;; the model gets plain text.
+     *
+     * @param string $text Text as saved.
+     */
+    private static function plain(string $text): string
+    {
+        return html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     /**
