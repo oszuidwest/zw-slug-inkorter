@@ -6,7 +6,7 @@ It replaces the `slug-inkorter-mu.php` mu-plugin on zuidwestupdate.nl.
 
 ## How it works
 
-When a post is published or scheduled for the first time, the plugin sends the title, the region and the first 50 words of the excerpt to the AI provider set up in WordPress. Without an excerpt it uses the start of the text. It uses the WordPress AI Client and asks for `gpt-5.4-mini`. If the provider does not have that model, WordPress picks another text model.
+When a post is published or scheduled for the first time, the plugin sends the title, the excerpt and the region to the AI provider set up in WordPress. Without an excerpt it sends the text. It uses the WordPress AI Client and asks for `gpt-5.4-mini`. If the provider does not have that model, WordPress picks another text model.
 
 The answer becomes the slug when it has at most 50 characters, is not taken yet and contains the region, if there is one. If not, the plugin asks once more and tells the model why. A second answer without the region is fine. If the second answer is too long or taken as well, the post keeps the slug WordPress made from the title. The plugin never adds `-2` to a short slug.
 

@@ -34,7 +34,7 @@ final class Shortener
 
         $title    = (string) wp_unslash((string) $data['post_title']);
         $excerpt  = (string) wp_unslash((string) $data['post_excerpt']);
-        $summary  = wp_trim_words($excerpt !== '' ? $excerpt : strip_shortcodes((string) wp_unslash((string) $data['post_content'])), 50, '');
+        $summary  = wp_strip_all_tags($excerpt !== '' ? $excerpt : strip_shortcodes((string) wp_unslash((string) $data['post_content'])), true);
         $region   = Region::forPost($postId, $postarr);
         $rejected = [];
 

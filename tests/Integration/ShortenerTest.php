@@ -29,6 +29,7 @@ final class ShortenerTest extends OpenAiTestCase
             'excerpt without tags'         => [['post_excerpt' => 'Een <em>garage</em> in Putte is uitgebrand.', 'post_content' => '<!-- wp:paragraph --><p>Lange tekst</p><!-- /wp:paragraph -->'], 'SAMENVATTING: Een garage in Putte is uitgebrand.'],
             'text without blocks, tags or shortcodes' => [['post_excerpt' => '', 'post_content' => '<!-- wp:paragraph --><p>De <strong>brandweer</strong> kwam snel.</p><!-- /wp:paragraph -->[kader]Info[/kader]'], "SAMENVATTING: De brandweer kwam snel.\n"],
             'no region, place from the title' => [[], 'PLAATS: zet de plaats uit de titel of samenvatting in de slug'],
+            'whole text, not cut short'       => [['post_excerpt' => '', 'post_content' => str_repeat('woord ', 60) . 'Zundert'], "woord Zundert\n"],
         ];
     }
 

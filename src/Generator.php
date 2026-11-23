@@ -50,7 +50,7 @@ Antwoord alleen met de slug.';
 
     /**
      * @param string       $title    Post title.
-     * @param string       $summary  Excerpt, or the start of the text.
+     * @param string       $summary  Excerpt, or the text when there is none.
      * @param string|null  $region   Region name that should be in the slug.
      * @param list<string> $rejected Earlier answers for this post, each with the reason it was not used.
      */
