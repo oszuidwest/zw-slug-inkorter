@@ -21,12 +21,8 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 spl_autoload_register(static function (string $class): void {
-    $prefix = 'ZWSlugSniper\\';
-    if (!str_starts_with($class, $prefix)) {
-        return;
-    }
-    $file = __DIR__ . '/src/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
-    if (is_file($file)) {
+    $file = __DIR__ . '/src/' . substr($class, strlen('ZWSlugSniper\\')) . '.php';
+    if (str_starts_with($class, 'ZWSlugSniper\\') && is_file($file)) {
         require_once $file;
     }
 });

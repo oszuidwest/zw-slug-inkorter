@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-22T23:29:19+00:00\n"
+"POT-Creation-Date: 2026-11-23T00:09:34+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: zw-slug-sniper\n"
@@ -39,36 +39,36 @@ msgid "Het AI-model gaf geen bruikbare slug."
 msgstr ""
 
 #: src/Health.php:46
-#: src/Health.php:60
+#: src/Health.php:72
 msgid "Slug Sniper"
 msgstr ""
 
-#: src/Health.php:58
-msgid "Slug Sniper meldt geen fouten"
-msgstr ""
-
-#: src/Health.php:61
-msgid "De laatste poging bij de AI-provider gaf geen fout, of er was nog geen poging. Of de provider nu werkt, blijkt pas bij het volgende nieuwe bericht dat wordt gepubliceerd of ingepland."
-msgstr ""
-
-#: src/Health.php:68
+#: src/Health.php:59
 msgid "Slug Sniper staat uit, want AI staat uit op deze site"
 msgstr ""
 
-#: src/Health.php:69
+#: src/Health.php:59
 msgid "Berichten houden de lange slug van de titel."
 msgstr ""
 
-#: src/Health.php:76
+#: src/Health.php:60
 msgid "Slug Sniper kon de laatste slug niet maken"
 msgstr ""
 
 #. translators: 1: date and time, 2: error message
-#: src/Health.php:79
+#: src/Health.php:62
 #, php-format
 msgid "Op %1$s ging het mis: %2$s Het bericht hield de lange slug van de titel."
 msgstr ""
 
-#: src/Health.php:83
+#: src/Health.php:66
+msgid "Slug Sniper meldt geen fouten"
+msgstr ""
+
+#: src/Health.php:66
+msgid "De laatste poging bij de AI-provider gaf geen fout, of er was nog geen poging. Of de provider nu werkt, blijkt pas bij het volgende nieuwe bericht dat wordt gepubliceerd of ingepland."
+msgstr ""
+
+#: src/Health.php:74
 msgid "Naar Connectors"
 msgstr ""

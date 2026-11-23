@@ -3,8 +3,5 @@
     "phpVersion": "8.4",
     "port": 8891,
     "testsEnvironment": false,
-    "plugins": [".", "https://downloads.wordpress.org/plugin/ai-provider-for-openai.1.2.0.zip"],
-    "config": {
-        "WP_DEBUG": true
-    }
+    "plugins": [".", "https://downloads.wordpress.org/plugin/ai-provider-for-openai.1.2.0.zip"]
 }
